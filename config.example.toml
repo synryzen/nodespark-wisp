@@ -60,3 +60,14 @@ enabled = true
 startup_chime = true
 command_chime = true
 error_chime = true
+
+[bluetooth]
+# Optional iPhone bridge mode. Keep disabled for the standard Wi-Fi/Hub setup.
+# Enable after installing the optional BLE dependency:
+#   /opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
+enabled = false
+device_name = "NodeSpark Wisp"
+service_uuid = "4E530001-4E53-5749-5350-000000000001"
+command_characteristic_uuid = "4E530002-4E53-5749-5350-000000000001"
+event_characteristic_uuid = "4E530003-4E53-5749-5350-000000000001"
+state_characteristic_uuid = "4E530004-4E53-5749-5350-000000000001"

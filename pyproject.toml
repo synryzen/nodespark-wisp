@@ -9,6 +9,11 @@ dependencies = [
   "qrcode[pil]>=7.4.2",
 ]
 
+[project.optional-dependencies]
+ble = [
+  "bless>=0.2.6",
+]
+
 [project.scripts]
 nodespark-wisp = "nodespark_wisp.__main__:main"
 nodespark-whisplay = "nodespark_wisp.__main__:main"

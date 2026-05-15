@@ -72,6 +72,37 @@ bash scripts/send_demo_command.sh <device-id> dashboard
 bash scripts/send_demo_command.sh <device-id> demo
 ```
 
+## Optional Wisp Mobile Bridge
+
+To let NodeSpark on iPhone connect to the Wisp over Bluetooth LE, install the optional BLE dependency and enable bridge mode:
+
+```bash
+/opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
+sudo nano /etc/nodespark-wisp/config.toml
+```
+
+Set:
+
+```toml
+[bluetooth]
+enabled = true
+device_name = "NodeSpark Wisp"
+```
+
+Restart the service:
+
+```bash
+sudo systemctl restart nodespark-wisp
+```
+
+On iPhone, open NodeSpark, then:
+
+```text
+Settings -> Hub Pairing & Control -> Wisp Mobile Bridge
+```
+
+Scan for the Wisp and connect. The iPhone bridge can send direct commands to the Wisp and can forward Wisp events to NodeSparkHub when the iPhone is paired with a reachable Hub.
+
 ## Optional Audio Driver
 
 If the speaker or microphone does not appear in `arecord -l` and `aplay -l`:

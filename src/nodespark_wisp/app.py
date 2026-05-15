@@ -36,6 +36,7 @@ class NodeSparkWispApp:
         self._last_status_read = 0.0
         self.notifications: list[dict[str, Any]] = []
         self.pending_approval: dict[str, Any] | None = None
+        self.ble_bridge = None
 
     def pair(self, code: str) -> dict[str, Any]:
         response = self.hub.pair(code)
@@ -71,6 +72,7 @@ class NodeSparkWispApp:
     def daemon(self) -> None:
         self._install_signal_handlers()
         self._install_button_handlers()
+        self._start_ble_bridge()
 
         if self.cfg.display.startup_logo_enabled:
             self.display.show_startup_logo(
@@ -111,6 +113,7 @@ class NodeSparkWispApp:
             elif event == "cycle":
                 self._cycle_workflow()
 
+        self._stop_ble_bridge()
         self.display.cleanup()
 
     def current_workflow(self) -> str:
@@ -134,6 +137,24 @@ class NodeSparkWispApp:
                 self._execute_command(command)
         except Exception as exc:
             print(f"[commands] poll failed: {exc}")
+
+    def _start_ble_bridge(self) -> None:
+        if not self.cfg.bluetooth.enabled:
+            return
+        try:
+            from .ble_bridge import WispBLEBridge
+            self.ble_bridge = WispBLEBridge(self)
+            if self.ble_bridge.start():
+                print("[ble] Wisp Mobile Bridge enabled")
+        except Exception as exc:
+            print(f"[ble] could not start Wisp Mobile Bridge: {exc}")
+
+    def _stop_ble_bridge(self) -> None:
+        if self.ble_bridge is not None:
+            try:
+                self.ble_bridge.stop()
+            except Exception:
+                pass
 
     def _execute_command(self, command: dict[str, Any]) -> None:
         command_id = str(command.get("id", ""))

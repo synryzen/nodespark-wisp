@@ -81,6 +81,16 @@ class SoundConfig:
 
 
 @dataclass
+class BluetoothConfig:
+    enabled: bool = False
+    device_name: str = "NodeSpark Wisp"
+    service_uuid: str = "4E530001-4E53-5749-5350-000000000001"
+    command_characteristic_uuid: str = "4E530002-4E53-5749-5350-000000000001"
+    event_characteristic_uuid: str = "4E530003-4E53-5749-5350-000000000001"
+    state_characteristic_uuid: str = "4E530004-4E53-5749-5350-000000000001"
+
+
+@dataclass
 class AppConfig:
     hub: HubConfig = field(default_factory=HubConfig)
     device: DeviceConfig = field(default_factory=DeviceConfig)
@@ -89,6 +99,7 @@ class AppConfig:
     audio: AudioConfig = field(default_factory=AudioConfig)
     speech: SpeechConfig = field(default_factory=SpeechConfig)
     sound: SoundConfig = field(default_factory=SoundConfig)
+    bluetooth: BluetoothConfig = field(default_factory=BluetoothConfig)
 
 
 def default_config_paths() -> list[Path]:
@@ -125,6 +136,7 @@ def load_config(path: str | None = None) -> AppConfig:
     _merge_dataclass(cfg.audio, raw.get("audio", {}))
     _merge_dataclass(cfg.speech, raw.get("speech", {}))
     _merge_dataclass(cfg.sound, raw.get("sound", {}))
+    _merge_dataclass(cfg.bluetooth, raw.get("bluetooth", {}))
 
     cfg.hub.base_url = os.environ.get("NODESPARK_HUB_URL", cfg.hub.base_url).rstrip("/")
     cfg.audio.openai_api_key = os.environ.get("OPENAI_API_KEY", cfg.audio.openai_api_key)

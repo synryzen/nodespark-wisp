@@ -82,6 +82,7 @@ Current Wisp capabilities:
 - Send workflow payloads back to Hub with device identity and transcript text.
 - Run a full sales-showcase sequence from one Hub command.
 - Print local status including IP/Wi-Fi/battery/temperature when available.
+- Optionally advertise a Bluetooth LE Wisp Mobile Bridge for NodeSpark on iPhone.
 
 ## Hardware Needed
 
@@ -263,6 +264,56 @@ For offline transcription, install `vosk`, download a small model, and set:
 transcription_provider = "vosk"
 vosk_model_path = "/opt/nodespark-wisp/models/vosk"
 ```
+
+## Wisp Mobile Bridge
+
+Wisp Mobile Bridge is an optional Bluetooth LE mode for travel demos and
+on-the-go control. It lets NodeSpark on iPhone connect directly to the Wisp,
+send display/speech/dashboard commands, and forward Wisp events into
+NodeSparkHub when the iPhone has a Hub connection.
+
+The standard Wi-Fi/Hub connection remains the best full-time setup. Bluetooth
+bridge mode is for mobile use when the Wisp is near the iPhone.
+
+Enable it on the Pi:
+
+```bash
+/opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
+sudo nano /etc/nodespark-wisp/config.toml
+```
+
+Set:
+
+```toml
+[bluetooth]
+enabled = true
+device_name = "NodeSpark Wisp"
+```
+
+Restart:
+
+```bash
+sudo systemctl restart nodespark-wisp
+```
+
+In NodeSpark on iPhone, open:
+
+```text
+Settings -> Hub Pairing & Control -> Wisp Mobile Bridge
+```
+
+Then scan, connect, and try Ping or Demo Card.
+
+BLE protocol:
+
+- Service: `4E530001-4E53-5749-5350-000000000001`
+- Command characteristic, write: `4E530002-4E53-5749-5350-000000000001`
+- Event characteristic, notify/read: `4E530003-4E53-5749-5350-000000000001`
+- State characteristic, notify/read: `4E530004-4E53-5749-5350-000000000001`
+
+Commands are compact JSON objects using the same command shapes as the Hub
+device command channel, such as `display`, `card`, `dashboard`, `speak`, `led`,
+`ping`, and `demo`.
 
 ## Startup Logo
 
