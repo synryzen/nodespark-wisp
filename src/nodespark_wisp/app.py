@@ -167,7 +167,7 @@ class NodeSparkWispApp:
                 self.display.show(title, body, "Sent from NodeSparkHub", rgb, self._status_footer())
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", "displayed")
-            elif kind in {"card", "alert", "success", "warning", "error", "ai", "voice", "workflow", "timer", "weather", "statuscard"}:
+            elif kind in {"card", "alert", "success", "warning", "error", "ai", "voice", "workflow", "timer", "weather", "statuscard", "demo", "showcase", "promo"}:
                 title = str(command.get("title") or self._title_for_kind(kind))
                 body = self._command_text(command)
                 subtitle = str(command.get("subtitle") or command.get("detail") or "")
@@ -213,7 +213,7 @@ class NodeSparkWispApp:
                 choices = self._choices(command) or ["Approve", "Reject"]
                 self.display.show_approval(title, body, choices, self._rgb(command, (255, 180, 50)), self._status_footer())
                 self._chime("listen")
-            elif kind in {"speak", "say", "speaktext"}:
+            elif kind in {"speak", "say", "speaktext", "speech", "speaker", "tts"}:
                 text = str(command.get("text") or command.get("body") or "")
                 self.display.show("Speaking", text[:180], "NodeSparkHub", (120, 90, 255), self._status_footer())
                 self._chime("success")
