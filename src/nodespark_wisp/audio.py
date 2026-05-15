@@ -23,7 +23,7 @@ class AudioIO:
         if not self.enabled or not shutil.which("arecord"):
             return None
         out = Path(tempfile.gettempdir()) / "nodespark-wisp-command.wav"
-        device = f"hw:{self.card},0" if self.card else "default"
+        device = self._alsa_device()
         cmd = [
             "arecord",
             "-q",
@@ -46,6 +46,26 @@ class AudioIO:
         text = (text or "").strip()
         if not text or not shutil.which("espeak-ng"):
             return
+        if self.card and shutil.which("aplay"):
+            try:
+                espeak = subprocess.Popen(
+                    ["espeak-ng", "--stdout", "-v", voice, "-s", str(rate), text[:900]],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                )
+                aplay = subprocess.Popen(
+                    ["aplay", "-q", "-D", self._alsa_device(), "-"],
+                    stdin=espeak.stdout,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                if espeak.stdout:
+                    espeak.stdout.close()
+                aplay.wait(timeout=30)
+                espeak.wait(timeout=30)
+                return
+            except (OSError, subprocess.TimeoutExpired):
+                pass
         cmd = ["espeak-ng", "-v", voice, "-s", str(rate), text[:900]]
         subprocess.run(cmd, check=False)
 
@@ -59,10 +79,11 @@ class AudioIO:
             "listen": [(660, 0.08)],
         }.get(kind, [(880, 0.08)])
         if shutil.which("speaker-test"):
+            device_args = ["-D", self._alsa_device()] if self.card else []
             for freq, duration in notes:
                 try:
                     subprocess.run(
-                        ["speaker-test", "-q", "-t", "sine", "-f", str(freq), "-l", "1"],
+                        ["speaker-test", "-q", *device_args, "-t", "sine", "-f", str(freq), "-l", "1"],
                         timeout=max(1.0, duration + 0.4),
                         check=False,
                         stdout=subprocess.DEVNULL,
@@ -74,6 +95,9 @@ class AudioIO:
         if shutil.which("espeak-ng"):
             token = {"startup": "doo dee", "success": "ding", "error": "error", "listen": "go"}.get(kind, "ding")
             subprocess.run(["espeak-ng", "-s", "190", token], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def _alsa_device(self) -> str:
+        return f"plughw:{self.card},0" if self.card else "default"
 
     @staticmethod
     def _find_wm8960_card() -> str:
