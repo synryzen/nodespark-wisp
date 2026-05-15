@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NodeSpark Wisp</title>
+    <meta
+      name="description"
+      content="NodeSpark Wisp is a Raspberry Pi companion device for NodeSparkHub, built with a Whisplay HAT display, speaker, microphone, RGB LED, and hardware button."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="NodeSpark Wisp home">
+        <img src="assets/startup_logo.png" alt="" class="brand-mark">
+        <span>NodeSpark Wisp</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#hardware">Hardware</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/synryzen/nodespark-wisp">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Physical workflows for NodeSparkHub</p>
+          <h1 id="hero-title">NodeSpark Wisp</h1>
+          <p class="lead">
+            A pocket-sized Raspberry Pi device that gives NodeSparkHub a real display,
+            speaker, microphone, RGB light, and hardware button for live automation demos.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/synryzen/nodespark-wisp">View on GitHub</a>
+            <a class="button secondary" href="#install">Build one</a>
+          </div>
+        </div>
+        <div class="hero-device" aria-label="NodeSpark Wisp startup logo preview">
+          <div class="device-shell">
+            <div class="device-screen">
+              <img src="assets/startup_logo.png" alt="NodeSpark mascot startup logo">
+            </div>
+            <div class="device-footer">
+              <span class="status-dot"></span>
+              <span>Hub linked</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band intro" aria-labelledby="intro-title">
+        <div>
+          <p class="section-kicker">Why it matters</p>
+          <h2 id="intro-title">NodeSparkHub becomes more than an app screen.</h2>
+        </div>
+        <p>
+          Wisp connects Hub workflows to physical output. It can show workflow status,
+          speak responses, request approvals, display QR codes, run favorites from a
+          button, and bridge mobile demos through NodeSpark on iPhone.
+        </p>
+      </section>
+
+      <section class="section" id="features" aria-labelledby="features-title">
+        <div class="section-heading">
+          <p class="section-kicker">What it can do</p>
+          <h2 id="features-title">A compact showcase device for automation.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span class="feature-icon">01</span>
+            <h3>Live Hub Display</h3>
+            <p>Show messages, rich cards, progress, alerts, QR codes, dashboards, and branded status screens.</p>
+          </article>
+          <article>
+            <span class="feature-icon">02</span>
+            <h3>Workflow Control</h3>
+            <p>Run selected NodeSparkHub workflows from the hardware button or direct Hub commands.</p>
+          </article>
+          <article>
+            <span class="feature-icon">03</span>
+            <h3>Approvals</h3>
+            <p>Ask for a physical approve or reject decision and send the result back into the workflow.</p>
+          </article>
+          <article>
+            <span class="feature-icon">04</span>
+            <h3>Voice Input</h3>
+            <p>Record short commands and route transcripts into Hub workflows using OpenAI, Vosk, or text-only mode.</p>
+          </article>
+          <article>
+            <span class="feature-icon">05</span>
+            <h3>Speech And Sound</h3>
+            <p>Speak Hub responses through the onboard speaker and play startup, success, and error chimes.</p>
+          </article>
+          <article>
+            <span class="feature-icon">06</span>
+            <h3>Mobile Bridge</h3>
+            <p>Optionally connect NodeSpark on iPhone over Bluetooth LE for travel demos and direct Wisp commands.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section split" id="hardware" aria-labelledby="hardware-title">
+        <div>
+          <p class="section-kicker">Hardware</p>
+          <h2 id="hardware-title">Built for the OpenClaw-style Whisplay stack.</h2>
+          <p>
+            The project targets the same physical hardware style used by DIY OpenClaw
+            assistants. OpenClaw is not required; this is NodeSparkHub companion software.
+          </p>
+        </div>
+        <ul class="check-list">
+          <li>Raspberry Pi Zero 2 W</li>
+          <li>PiSugar Whisplay HAT with 1.69-inch LCD</li>
+          <li>Whisplay speaker, microphone, RGB LED, and button</li>
+          <li>PiSugar battery pack</li>
+          <li>MicroSD card, 16 GB or larger recommended</li>
+          <li>Wi-Fi reachable by the Mac running NodeSparkHub</li>
+        </ul>
+      </section>
+
+      <section class="section install" id="install" aria-labelledby="install-title">
+        <div class="section-heading">
+          <p class="section-kicker">Install</p>
+          <h2 id="install-title">Clone, install, pair, and start the service.</h2>
+        </div>
+        <div class="steps">
+          <article>
+            <h3>1. Install on the Pi</h3>
+            <pre><code>git clone https://github.com/synryzen/nodespark-wisp.git
+cd nodespark-wisp
+bash scripts/install_pi.sh</code></pre>
+          </article>
+          <article>
+            <h3>2. Pair with NodeSparkHub</h3>
+            <pre><code>/opt/nodespark-wisp/scripts/pair_device.sh 123456</code></pre>
+          </article>
+          <article>
+            <h3>3. Start the service</h3>
+            <pre><code>sudo systemctl enable --now nodespark-wisp
+journalctl -u nodespark-wisp -f</code></pre>
+          </article>
+        </div>
+        <p class="install-note">
+          Full setup guide:
+          <a href="https://github.com/synryzen/nodespark-wisp/blob/main/docs/INSTALL.md">Install NodeSpark Wisp</a>
+        </p>
+      </section>
+
+      <section class="band subscription" aria-labelledby="subscription-title">
+        <div>
+          <p class="section-kicker">NodeSparkHub All Access</p>
+          <h2 id="subscription-title">The device is full-featured. Hub operation requires an active subscription.</h2>
+        </div>
+        <p>
+          Wisp is not split into separate locked device tiers. The subscription powers
+          the NodeSparkHub runtime behind pairing, command routing, workflow execution,
+          automation history, and iPhone Mobile Bridge forwarding.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>NodeSpark Wisp</span>
+      <a href="https://github.com/synryzen/nodespark-wisp">github.com/synryzen/nodespark-wisp</a>
+    </footer>
+  </body>
+</html>
