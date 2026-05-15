@@ -1,0 +1,62 @@
+[hub]
+# LAN URL from NodeSparkHub Settings, usually http://<Mac-IP>:8787
+base_url = "http://192.168.1.10:8787"
+
+# Default workflow to run when you hold the Wisp button.
+default_workflow = "Wisp Assistant"
+
+# Optional comma-separated style list shown/cycled on the device.
+favorite_workflows = ["Wisp Assistant", "Quick Note", "Home Status"]
+
+[device]
+name = "NodeSpark Wisp"
+checkin_interval_seconds = 60
+command_poll_interval_seconds = 2
+
+[display]
+enabled = true
+backlight = 65
+# install_pi.sh clones the official driver here.
+driver_path = "/opt/Whisplay/Driver"
+startup_logo_enabled = true
+# Optional override. Leave blank to use the bundled NodeSpark mascot.
+startup_logo_path = ""
+show_status_bar = true
+animation_enabled = true
+
+[showcase]
+enabled = true
+idle_interval_seconds = 18
+idle_messages = [
+  "Ask NodeSparkHub to run automations from a physical device.",
+  "Use workflows to update this screen, speak, and trigger actions.",
+  "Short press changes workflow. Hold to talk."
+]
+
+[audio]
+enabled = true
+record_seconds = 5
+sample_rate = 16000
+channels = 1
+format = "S16_LE"
+
+# Transcription providers:
+# - "openai": uses OPENAI_API_KEY or openai_api_key below
+# - "vosk": uses an offline Vosk model at vosk_model_path
+# - "none": button still runs workflows with an empty transcript payload
+transcription_provider = "none"
+openai_model = "gpt-4o-mini-transcribe"
+openai_api_key = ""
+vosk_model_path = "/opt/nodespark-wisp/models/vosk"
+
+[speech]
+enabled = true
+# Uses espeak-ng when installed.
+voice = "en-us"
+rate = 165
+
+[sound]
+enabled = true
+startup_chime = true
+command_chime = true
+error_chime = true

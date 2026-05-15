@@ -1,0 +1,20 @@
+[project]
+name = "nodespark-wisp"
+version = "0.1.0"
+description = "NodeSparkHub client for Raspberry Pi Zero 2 W + PiSugar Whisplay HAT"
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.32.0",
+  "Pillow>=10.3.0",
+  "qrcode[pil]>=7.4.2",
+]
+
+[project.scripts]
+nodespark-wisp = "nodespark_wisp.__main__:main"
+nodespark-whisplay = "nodespark_wisp.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nodespark_wisp = ["assets/*.png"]
