@@ -35,6 +35,7 @@ class DisplayConfig:
     enabled: bool = True
     backlight: int = 65
     driver_path: str = "/opt/Whisplay/Driver"
+    spi_speed_hz: int = 48000000
     startup_logo_enabled: bool = True
     startup_logo_path: str = ""
     show_status_bar: bool = True

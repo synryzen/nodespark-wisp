@@ -18,7 +18,12 @@ class NodeSparkWispApp:
     def __init__(self, cfg: AppConfig, state: StateStore):
         self.cfg = cfg
         self.state = state
-        self.display = DeviceDisplay(cfg.display.enabled, cfg.display.driver_path, cfg.display.backlight)
+        self.display = DeviceDisplay(
+            cfg.display.enabled,
+            cfg.display.driver_path,
+            cfg.display.backlight,
+            cfg.display.spi_speed_hz,
+        )
         self.audio = AudioIO(cfg.audio.enabled, cfg.audio.sample_rate, cfg.audio.channels, cfg.audio.format)
         self.transcriber = Transcriber(
             cfg.audio.transcription_provider,

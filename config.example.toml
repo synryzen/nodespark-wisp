@@ -18,6 +18,9 @@ enabled = true
 backlight = 65
 # install_pi.sh clones the official driver here.
 driver_path = "/opt/Whisplay/Driver"
+# 48 MHz is fast enough for smooth updates and more reliable than the vendor
+# driver's 100 MHz default on some Raspberry Pi Zero 2 W setups.
+spi_speed_hz = 48000000
 startup_logo_enabled = true
 # Optional override. Leave blank to use the bundled NodeSpark mascot.
 startup_logo_path = ""

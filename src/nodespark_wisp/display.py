@@ -13,10 +13,17 @@ class DeviceDisplay:
     width = 240
     height = 280
 
-    def __init__(self, enabled: bool = True, driver_path: str = "/opt/Whisplay/Driver", backlight: int = 65):
+    def __init__(
+        self,
+        enabled: bool = True,
+        driver_path: str = "/opt/Whisplay/Driver",
+        backlight: int = 65,
+        spi_speed_hz: int = 48000000,
+    ):
         self.enabled = enabled
         self.driver_path = driver_path
         self.backlight = backlight
+        self.spi_speed_hz = spi_speed_hz
         self.board = None
         self._lock = threading.Lock()
         if enabled:
@@ -30,6 +37,8 @@ class DeviceDisplay:
             from WhisPlay import WhisPlayBoard  # type: ignore
 
             self.board = WhisPlayBoard()
+            if getattr(self.board, "spi", None) is not None and self.spi_speed_hz > 0:
+                self.board.spi.max_speed_hz = int(self.spi_speed_hz)
             self.board.set_backlight(max(0, min(100, int(self.backlight))))
             self.board.set_rgb(20, 80, 255)
         except Exception as exc:
