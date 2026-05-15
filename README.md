@@ -35,6 +35,19 @@ Use it to:
 The big idea: NodeSparkHub is not just an app screen. It can become a control
 center for real-world devices.
 
+## Subscription Requirement
+
+NodeSpark Wisp is designed for active NodeSparkHub subscribers. The hardware is
+not split into separate locked feature tiers: display cards, voice, buttons,
+approvals, dashboards, QR screens, Bluetooth Mobile Bridge, and workflow actions
+are the full Wisp experience.
+
+An active NodeSparkHub All Access subscription powers the Hub runtime behind
+that experience: pairing, secure command routing, live device commands,
+workflow execution, automation history, and iPhone Mobile Bridge forwarding.
+Without All Access, builders can still install the software and bring up the
+device, but live Hub-to-Wisp operation requires the subscription.
+
 ## How It Works With NodeSparkHub
 
 NodeSpark Wisp connects to the Hub server built into NodeSparkHub over HTTP.

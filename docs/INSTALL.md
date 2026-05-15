@@ -9,6 +9,11 @@ NodeSpark Wisp runs on a Raspberry Pi Zero 2 W with the PiSugar Whisplay HAT.
 - PiSugar battery
 - Raspberry Pi OS with Wi-Fi enabled
 - NodeSparkHub running on your Mac, with the Hub Server started
+- Active NodeSparkHub All Access subscription for live Wisp operation
+
+NodeSpark Wisp is not feature-tiered on the device. The subscription activates
+the NodeSparkHub runtime used for pairing, secure commands, workflow execution,
+automation history, and iPhone Mobile Bridge forwarding.
 
 ## 1. Install On The Pi
 
