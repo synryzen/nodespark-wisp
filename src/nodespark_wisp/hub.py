@@ -44,6 +44,21 @@ class HubClient:
             "platform": "Raspberry Pi Zero 2 W / NodeSpark Wisp",
             "osVersion": _linux_pretty_name(),
             "appVersion": "nodespark-wisp/0.1.0",
+            "capabilities": [
+                "run",
+                "workflows",
+                "deviceActions",
+                "deviceCommands",
+                "pairing",
+                "display",
+                "speaker",
+                "microphone",
+                "button",
+                "rgb",
+                "qr",
+                "approval",
+                "dashboard",
+            ],
         }
         return self._request("POST", "/devices/checkin", json=payload)
 
