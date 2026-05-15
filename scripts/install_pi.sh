@@ -8,9 +8,13 @@ WHISPLAY_ROOT="${WHISPLAY_ROOT:-/opt/Whisplay}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 sudo apt-get update
+GPIO_RUNTIME_PACKAGE="libgpiod2"
+if ! apt-cache show "$GPIO_RUNTIME_PACKAGE" >/dev/null 2>&1; then
+  GPIO_RUNTIME_PACKAGE="libgpiod3"
+fi
 sudo apt-get install -y \
   python3 python3-venv python3-pip git alsa-utils espeak-ng \
-  libgpiod2 libgpiod-dev python3-dev python3-pil python3-pygame
+  "$GPIO_RUNTIME_PACKAGE" libgpiod-dev python3-dev python3-pil python3-pygame
 
 if [ ! -d "$WHISPLAY_ROOT/.git" ]; then
   sudo git clone --depth 1 https://github.com/PiSugar/Whisplay.git "$WHISPLAY_ROOT"
