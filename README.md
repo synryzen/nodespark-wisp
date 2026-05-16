@@ -1,10 +1,10 @@
 # NodeSpark Wisp
 
-NodeSpark Wisp is a pocket-sized Raspberry Pi companion device for
-NodeSparkHub. It gives NodeSparkHub a real physical presence: a tiny display,
-speaker, microphone, RGB light, and hardware button that can run workflows,
-show live workflow results, speak responses, ask for approvals, and display
-branded dashboard screens.
+NodeSpark Wisp is a pocket-sized physical companion device for NodeSparkHub.
+It gives NodeSparkHub a real physical presence: a tiny display, speaker,
+microphone, touch screen or button input, RGB/light feedback, and a workflow
+surface that can show live results, request approvals, and display branded
+dashboard screens.
 
 It is built to demonstrate what NodeSparkHub can do beyond an iPhone. With
 Wisp, NodeSparkHub can connect software automation to something people can hold
@@ -31,6 +31,7 @@ Use it to:
 
 - Demo NodeSparkHub at a desk, booth, store, classroom, or client meeting.
 - Trigger Hub workflows from a real button.
+- Navigate a touch-first ESP32-S3 Wisp interface.
 - Send live workflow output from NodeSparkHub to a Raspberry Pi display.
 - Speak Hub responses through the device speaker.
 - Capture short voice commands and send them into Hub workflows.
@@ -82,6 +83,8 @@ Current Wisp capabilities:
 - Pair with NodeSparkHub using a one-time pairing code.
 - Appear inside NodeSparkHub's connected device list.
 - Check in automatically so Hub can show connection status.
+- Run on Raspberry Pi Zero 2 W with PiSugar Whisplay HAT.
+- Run on ESP32-S3 N16R8 with ILI9341 touch display, MAX98357 amp, and INMP441 mic.
 - Show the NodeSpark mascot as a startup logo.
 - Show animated listening, thinking, running, success, and error screens.
 - Show text messages from NodeSparkHub.
@@ -95,6 +98,7 @@ Current Wisp capabilities:
 - Play startup, listening, success, and error chimes when audio is available.
 - Set the RGB LED color from Hub commands.
 - Run a selected Hub workflow from the physical button.
+- Run a selected Hub workflow from the ESP32-S3 touch UI.
 - Cycle favorite workflows with a short button press.
 - Record a short voice command with a button hold.
 - Transcribe with OpenAI, offline Vosk, or skip transcription for text-only use.
@@ -103,7 +107,18 @@ Current Wisp capabilities:
 - Print local status including IP/Wi-Fi/battery/temperature when available.
 - Optionally advertise a Bluetooth LE Wisp Mobile Bridge for NodeSpark on iPhone.
 
-## Hardware Needed
+## Hardware Targets
+
+NodeSpark Wisp now has two hardware builds:
+
+- **Whisplay Wisp**: Raspberry Pi Zero 2 W + PiSugar Whisplay HAT.
+- **ESP32-S3 Wisp Touch**: ESP32-S3 N16R8 + 2.8-inch ILI9341 touch TFT +
+  MAX98357 I2S amp + INMP441 I2S mic.
+
+Both builds pair with NodeSparkHub, appear in Hub Server device settings, poll
+Hub commands, and acknowledge command results.
+
+## Raspberry Pi Hardware Needed
 
 This software targets the same hardware stack used by OpenClaw-style DIY
 assistants:
@@ -132,6 +147,36 @@ Recommended software/runtime:
 
 Important: this project uses the same physical hardware style as OpenClaw, but
 it is NodeSparkHub companion software. OpenClaw is not required.
+
+## ESP32-S3 Touch Hardware Needed
+
+The ESP32-S3 build is a lower-cost touch-first Wisp variant. It is great for
+larger screens, handheld demo panels, wall controls, and future battery builds.
+
+Parts:
+
+- ESP32-S3 Development Board N16R8 with USB-C
+- ILI9341 2.8-inch SPI TFT LCD Display Touch Panel, 240x320
+- MAX98357 I2S DAC Class D Amplifier Module
+- Small speaker for the MAX98357 output
+- INMP441 omnidirectional I2S MEMS microphone module
+- Jumper wires and a breadboard or soldered prototype board
+
+Firmware and wiring guide:
+
+```text
+firmware/esp32-s3-wisp/README.md
+```
+
+Build check from this repo:
+
+```bash
+bash scripts/build_esp32_s3.sh
+```
+
+The ESP32-S3 firmware currently supports Wi-Fi Hub pairing, check-ins, Hub
+command polling, touch navigation, touchscreen approvals, local demo actions,
+workflow triggering, I2S chimes, and INMP441 mic level testing.
 
 ## Quick Install
 

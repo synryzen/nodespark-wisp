@@ -1,6 +1,7 @@
 # Install NodeSpark Wisp
 
 NodeSpark Wisp runs on a Raspberry Pi Zero 2 W with the PiSugar Whisplay HAT.
+The repo also includes an ESP32-S3 touch-screen firmware build.
 
 ## Requirements
 
@@ -124,3 +125,43 @@ cd /opt/nodespark-wisp
 git pull --ff-only
 /opt/nodespark-wisp/scripts/update_pi.sh
 ```
+
+## ESP32-S3 Touch Build
+
+The ESP32-S3 build uses:
+
+- ESP32-S3 N16R8 USB-C development board
+- ILI9341 2.8-inch SPI TFT LCD touch display
+- MAX98357 I2S amplifier and speaker
+- INMP441 I2S microphone
+
+Read the wiring guide:
+
+```text
+firmware/esp32-s3-wisp/README.md
+```
+
+Create the firmware config:
+
+```bash
+cp firmware/esp32-s3-wisp/nodespark_wisp_esp32/config.example.h \
+  firmware/esp32-s3-wisp/nodespark_wisp_esp32/config.h
+```
+
+Edit `config.h` with Wi-Fi and the NodeSparkHub LAN URL, then compile:
+
+```bash
+bash scripts/build_esp32_s3.sh
+```
+
+Upload with Arduino IDE or:
+
+```bash
+arduino-cli upload \
+  -p /dev/cu.usbmodemXXXX \
+  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi \
+  firmware/esp32-s3-wisp/nodespark_wisp_esp32
+```
+
+Pair from the ESP32 touch screen by opening the `Pair` tab, entering the code
+from NodeSparkHub `Settings -> Hub Server -> Devices`, and tapping `Pair`.

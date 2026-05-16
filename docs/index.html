@@ -6,7 +6,7 @@
     <title>NodeSpark Wisp</title>
     <meta
       name="description"
-      content="NodeSpark Wisp is a Raspberry Pi companion device for NodeSparkHub, built with a Whisplay HAT display, speaker, microphone, RGB LED, and hardware button."
+      content="NodeSpark Wisp is a physical companion device for NodeSparkHub, with Raspberry Pi Whisplay and ESP32-S3 touch-screen builds."
     >
     <link rel="stylesheet" href="styles.css">
   </head>
@@ -30,8 +30,8 @@
           <p class="eyebrow">Physical workflows for NodeSparkHub</p>
           <h1 id="hero-title">NodeSpark Wisp</h1>
           <p class="lead">
-            A pocket-sized Raspberry Pi device that gives NodeSparkHub a real display,
-            speaker, microphone, RGB light, and hardware button for live automation demos.
+            A pocket-sized physical device family that gives NodeSparkHub a real display,
+            speaker, microphone, touch controls, and workflow interface for live automation demos.
           </p>
           <div class="actions">
             <a class="button primary" href="https://github.com/synryzen/nodespark-wisp">View on GitHub</a>
@@ -58,8 +58,8 @@
         </div>
         <p>
           Wisp connects Hub workflows to physical output. It can show workflow status,
-          speak responses, request approvals, display QR codes, run favorites from a
-          button, and bridge mobile demos through NodeSpark on iPhone.
+          request approvals, display QR codes, run favorites from a button or touch screen,
+          play sound, and bridge mobile demos through NodeSpark on iPhone.
         </p>
       </section>
 
@@ -105,20 +105,32 @@
       <section class="section split" id="hardware" aria-labelledby="hardware-title">
         <div>
           <p class="section-kicker">Hardware</p>
-          <h2 id="hardware-title">Built for the OpenClaw-style Whisplay stack.</h2>
+          <h2 id="hardware-title">Two physical builds: Whisplay and ESP32-S3 Touch.</h2>
           <p>
-            The project targets the same physical hardware style used by DIY OpenClaw
-            assistants. OpenClaw is not required; this is NodeSparkHub companion software.
+            Start with the OpenClaw-style Raspberry Pi Whisplay stack, or build the
+            lower-cost ESP32-S3 touch version with a 2.8-inch ILI9341 display.
           </p>
         </div>
-        <ul class="check-list">
-          <li>Raspberry Pi Zero 2 W</li>
-          <li>PiSugar Whisplay HAT with 1.69-inch LCD</li>
-          <li>Whisplay speaker, microphone, RGB LED, and button</li>
-          <li>PiSugar battery pack</li>
-          <li>MicroSD card, 16 GB or larger recommended</li>
-          <li>Wi-Fi reachable by the Mac running NodeSparkHub</li>
-        </ul>
+        <div class="hardware-cards">
+          <article>
+            <h3>Whisplay Wisp</h3>
+            <ul class="check-list compact">
+              <li>Raspberry Pi Zero 2 W</li>
+              <li>PiSugar Whisplay HAT with 1.69-inch LCD</li>
+              <li>Whisplay speaker, microphone, RGB LED, and button</li>
+              <li>PiSugar battery pack</li>
+            </ul>
+          </article>
+          <article>
+            <h3>ESP32-S3 Wisp Touch</h3>
+            <ul class="check-list compact">
+              <li>ESP32-S3 N16R8 USB-C board</li>
+              <li>ILI9341 2.8-inch SPI TFT touch display</li>
+              <li>MAX98357 I2S amplifier and speaker</li>
+              <li>INMP441 I2S microphone</li>
+            </ul>
+          </article>
+        </div>
       </section>
 
       <section class="section install" id="install" aria-labelledby="install-title">
@@ -141,6 +153,14 @@ bash scripts/install_pi.sh</code></pre>
             <h3>3. Start the service</h3>
             <pre><code>sudo systemctl enable --now nodespark-wisp
 journalctl -u nodespark-wisp -f</code></pre>
+          </article>
+        </div>
+        <div class="steps esp32-steps">
+          <article>
+            <h3>ESP32-S3 Touch Build</h3>
+            <pre><code>cp firmware/esp32-s3-wisp/nodespark_wisp_esp32/config.example.h \
+  firmware/esp32-s3-wisp/nodespark_wisp_esp32/config.h
+bash scripts/build_esp32_s3.sh</code></pre>
           </article>
         </div>
         <p class="install-note">
