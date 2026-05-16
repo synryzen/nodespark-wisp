@@ -12,8 +12,8 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
 - Show display cards, dashboards, pings, approval prompts, and command status.
 - Acknowledge completed, ignored, approved, rejected, or failed commands.
 - Use the touchscreen for pairing, navigation, local demos, and approvals.
-- Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL and port on
-  the touchscreen.
+- Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL plus optional
+  port on the touchscreen.
 - Play I2S chimes through the MAX98357 amp.
 - Show a live microphone level from the INMP441.
 - Trigger a Hub workflow from the touchscreen.
@@ -91,7 +91,7 @@ The display and touch controller share SPI clock, MOSI, and MISO.
    - `ArduinoJson`
 4. Optional: copy `nodespark_wisp_esp32/config.example.h` to
    `nodespark_wisp_esp32/config.h` to prefill Wi-Fi and Hub defaults.
-   You can also configure Wi-Fi, Hub URL, and port directly from the Wisp
+   You can also configure Wi-Fi, Hub URL, and optional port directly from the Wisp
    touchscreen after flashing.
 5. If you use `config.h`, edit it with your Wi-Fi SSID, password, and
    NodeSparkHub URL.
@@ -115,9 +115,12 @@ arduino-cli upload \
 
 1. Open `Set` on the Wisp touchscreen.
 2. Tap `Scan`, choose your Wi-Fi network, enter the password, then tap `Save`.
-3. Tap the URL field and enter the NodeSparkHub server base URL, such as
-   `http://192.168.1.57` or `https://your-domain.com`.
-4. Tap the port field and enter the Hub Server port, usually `8787`.
+3. Tap the URL field and enter the NodeSparkHub server base URL.
+   - For local Hub Server access, use something like `http://192.168.1.57`.
+   - For Cloudflare or another remote tunnel/domain, use something like
+     `https://your-domain.com`.
+4. Tap the port field only when the URL needs an explicit port. Local Hub Server
+   usually uses `8787`; Cloudflare HTTPS domains usually leave this field empty.
 5. Tap `Connect`.
 6. Start NodeSparkHub on the Mac.
 7. Start Hub Server.
@@ -137,7 +140,7 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
 - `Cmds`: last command and approval actions.
 - `Demo`: local demo buttons and workflow trigger.
 - `Mic`: INMP441 level test and voice workflow placeholder.
-- `Set`: Wi-Fi scan, SSID/password entry, Hub URL, Hub port, Save, and Connect.
+- `Set`: Wi-Fi scan, SSID/password entry, Hub URL, optional Hub port, Save, and Connect.
 
 ## Current Limitations
 

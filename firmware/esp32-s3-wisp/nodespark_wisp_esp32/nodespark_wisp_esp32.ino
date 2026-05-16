@@ -233,7 +233,7 @@ void loadNetworkSettings() {
   wifiSsid = prefs.getString("wifiSsid", WISP_WIFI_SSID);
   wifiPassword = prefs.getString("wifiPass", WISP_WIFI_PASSWORD);
   hubBase = prefs.getString("hubBase", normalizedHubBase(WISP_HUB_URL));
-  hubPort = prefs.getString("hubPort", portFromHubUrl(WISP_HUB_URL, "8787"));
+  hubPort = prefs.getString("hubPort", portFromHubUrl(WISP_HUB_URL, ""));
   updateHubUrl();
 }
 
@@ -250,7 +250,7 @@ void loadCompiledDefaults() {
   wifiSsid = WISP_WIFI_SSID;
   wifiPassword = WISP_WIFI_PASSWORD;
   hubBase = normalizedHubBase(WISP_HUB_URL);
-  hubPort = portFromHubUrl(WISP_HUB_URL, "8787");
+  hubPort = portFromHubUrl(WISP_HUB_URL, "");
   updateHubUrl();
   lastStatus = "Defaults loaded. Tap Connect.";
 }

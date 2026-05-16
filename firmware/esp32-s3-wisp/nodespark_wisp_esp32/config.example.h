@@ -6,8 +6,9 @@
 #define WISP_WIFI_SSID "Your WiFi Name"
 #define WISP_WIFI_PASSWORD "Your WiFi Password"
 
-// Use the LAN URL shown in NodeSparkHub Hub Server settings.
-// Example: "http://192.168.1.241:8787"
+// Use your NodeSparkHub URL. This can be a local LAN URL with a port or
+// a remote HTTPS domain through Cloudflare.
+// Examples: "http://192.168.1.241:8787" or "https://your-domain.com"
 #define WISP_HUB_URL "http://192.168.1.241:8787"
 
 #define WISP_DEVICE_NAME "NodeSpark Wisp ESP32"
@@ -19,4 +20,3 @@
 #define WISP_TOUCH_MAX_X 3800
 #define WISP_TOUCH_MIN_Y 320
 #define WISP_TOUCH_MAX_Y 3700
-
