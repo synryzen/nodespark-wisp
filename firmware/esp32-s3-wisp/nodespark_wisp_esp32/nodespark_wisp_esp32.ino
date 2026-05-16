@@ -32,6 +32,27 @@
 #ifndef WISP_ENABLE_AUDIO
 #define WISP_ENABLE_AUDIO 0
 #endif
+#ifndef WISP_TFT_RST_PIN
+#define WISP_TFT_RST_PIN 8
+#endif
+#ifndef WISP_CONNECT_ON_BOOT
+#define WISP_CONNECT_ON_BOOT 0
+#endif
+#ifndef WISP_ENABLE_BACKGROUND_HUB_POLL
+#define WISP_ENABLE_BACKGROUND_HUB_POLL 0
+#endif
+#ifndef WISP_HTTP_TIMEOUT_MS
+#define WISP_HTTP_TIMEOUT_MS 2500
+#endif
+#ifndef WISP_WIFI_CONNECT_TIMEOUT_MS
+#define WISP_WIFI_CONNECT_TIMEOUT_MS 7000
+#endif
+#ifndef WISP_TOUCH_POLL_MS
+#define WISP_TOUCH_POLL_MS 35
+#endif
+#ifndef WISP_WIFI_TX_POWER
+#define WISP_WIFI_TX_POWER WIFI_POWER_5dBm
+#endif
 #if WISP_ENABLE_BLE
 #include <BLE2902.h>
 #include <BLEDevice.h>
@@ -42,7 +63,7 @@
 // ESP32-S3 DevKit pin plan. Change here if your board labels differ.
 static constexpr int PIN_TFT_CS = 10;
 static constexpr int PIN_TFT_DC = 9;
-static constexpr int PIN_TFT_RST = -1;
+static constexpr int PIN_TFT_RST = WISP_TFT_RST_PIN;
 static constexpr int PIN_SPI_MOSI = 11;
 static constexpr int PIN_SPI_MISO = 13;
 static constexpr int PIN_SPI_SCK = 12;
@@ -165,6 +186,7 @@ int keyboardPage = 0;
 uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
 uint32_t lastWifiDrawMs = 0;
+uint32_t lastTouchPollMs = 0;
 bool ampReady = false;
 bool micReady = false;
 bool bleReady = false;
@@ -644,7 +666,7 @@ void beginInput(InputTarget target, const String& value) {
   drawKeyboard();
 }
 
-bool connectWifi(bool splash) {
+bool connectWifi(bool splash, uint32_t timeoutMs = WISP_WIFI_CONNECT_TIMEOUT_MS) {
   wifiSsid.trim();
   if (!wifiSsid.length()) {
     lastStatus = "Choose Wi-Fi in Setup.";
@@ -655,7 +677,7 @@ bool connectWifi(bool splash) {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.setTxPower(WISP_WIFI_TX_POWER);
   WiFi.disconnect(false);
   WiFi.scanDelete();
   delay(350);
@@ -664,7 +686,7 @@ bool connectWifi(bool splash) {
   if (splash) drawSplash(lastStatus);
   else drawSettingsMain();
   uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
     delay(250);
     yield();
   }
@@ -682,7 +704,7 @@ void scanWifiNetworks() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.setTxPower(WISP_WIFI_TX_POWER);
   WiFi.disconnect(false);
   WiFi.scanDelete();
   delay(350);
@@ -773,7 +795,7 @@ void runGuardedAction(const String& label, void (*action)()) {
 void actionScanWifi() { scanWifiNetworks(); }
 void actionConnectWifi() {
   saveNetworkSettings();
-  connectWifi(false);
+  connectWifi(false, 10000);
 }
 void actionLoadDefaults() {
   loadCompiledDefaults();
@@ -832,7 +854,8 @@ String request(const String& method, const String& path, const String& body = ""
   }
   String url = hubUrl + path;
   HTTPClient http;
-  http.setTimeout(6000);
+  http.setTimeout(WISP_HTTP_TIMEOUT_MS);
+  http.setReuse(false);
   bool started = false;
   WiFiClient plainClient;
   WiFiClientSecure secureClient;
@@ -1285,7 +1308,13 @@ void setupAudio() {
 }
 
 void setupWifi() {
-  connectWifi(true);
+#if WISP_CONNECT_ON_BOOT
+  connectWifi(true, WISP_WIFI_CONNECT_TIMEOUT_MS);
+#else
+  WiFi.mode(WIFI_OFF);
+  lastStatus = "Open Set > Conn for Wi-Fi.";
+  Serial.println("[wifi] auto-connect disabled for stable hardware bring-up");
+#endif
 }
 
 void setup() {
@@ -1327,28 +1356,36 @@ void setup() {
 }
 
 void loop() {
-  int x, y;
-  if (touched(x, y)) {
-    if (!touchDown && !actionBusy && millis() - lastTouchHandledMs > 260) {
-      touchDown = true;
-      lastTouchHandledMs = millis();
-      handleTouch(x, y);
+  uint32_t now = millis();
+
+  if (!actionBusy && now - lastTouchPollMs >= WISP_TOUCH_POLL_MS) {
+    lastTouchPollMs = now;
+    int x, y;
+    if (touched(x, y)) {
+      if (!touchDown && now - lastTouchHandledMs > 320) {
+        touchDown = true;
+        lastTouchHandledMs = now;
+        Serial.printf("[touch] x=%d y=%d screen=%d setup=%d\n", x, y, (int)currentScreen, (int)setupView);
+        handleTouch(x, y);
+      }
+    } else {
+      touchDown = false;
     }
-  } else {
-    touchDown = false;
   }
 
   processBleCommand();
 
-  if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastCheckinMs > 60000) {
+#if WISP_ENABLE_BACKGROUND_HUB_POLL
+  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastCheckinMs > 120000) {
     lastCheckinMs = millis();
     checkin();
   }
-  if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastPollMs > 2000) {
+  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastPollMs > 8000) {
     lastPollMs = millis();
     pollCommands();
     bleNotifyState();
   }
+#endif
   // Avoid periodic full-screen redraws; they look like black flashes on ILI9341.
   yield();
 }

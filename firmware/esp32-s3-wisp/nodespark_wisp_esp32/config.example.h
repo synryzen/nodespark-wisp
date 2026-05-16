@@ -24,6 +24,16 @@
 // avoids initializing I2S pins that may be floating during display-only tests.
 #define WISP_ENABLE_AUDIO 0
 
+// Hardware bring-up stability defaults. Connect manually from Set > Conn after
+// the display/touch wiring is stable.
+#define WISP_TFT_RST_PIN 8
+#define WISP_CONNECT_ON_BOOT 0
+#define WISP_ENABLE_BACKGROUND_HUB_POLL 0
+#define WISP_HTTP_TIMEOUT_MS 2500
+#define WISP_WIFI_CONNECT_TIMEOUT_MS 7000
+#define WISP_TOUCH_POLL_MS 35
+#define WISP_WIFI_TX_POWER WIFI_POWER_5dBm
+
 // Touch calibration varies by 2.8 inch ILI9341/XPT2046 module.
 // If touches are reversed or offset, adjust these values after first boot.
 #define WISP_TOUCH_MIN_X 240
