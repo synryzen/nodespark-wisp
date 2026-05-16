@@ -41,6 +41,15 @@
 #ifndef WISP_ENABLE_BACKGROUND_HUB_POLL
 #define WISP_ENABLE_BACKGROUND_HUB_POLL 0
 #endif
+#ifndef WISP_ENABLE_HUB_HEARTBEAT
+#define WISP_ENABLE_HUB_HEARTBEAT 1
+#endif
+#ifndef WISP_HUB_HEARTBEAT_MS
+#define WISP_HUB_HEARTBEAT_MS 45000
+#endif
+#ifndef WISP_COMMAND_POLL_MS
+#define WISP_COMMAND_POLL_MS 15000
+#endif
 #ifndef WISP_HTTP_TIMEOUT_MS
 #define WISP_HTTP_TIMEOUT_MS 2500
 #endif
@@ -210,6 +219,8 @@ int32_t scannedRssi[6];
 int scannedCount = 0;
 int keyboardPage = 0;
 int audioVolumePercent = 90;
+int lastMicLevel = 0;
+int lastMicBytes = 0;
 
 uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
@@ -626,11 +637,12 @@ void drawMic() {
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString(status, 16, 88, 2);
   tft.drawString("Volume " + String(audioVolumePercent) + "%", 16, 108, 2);
+  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 188, 2);
   drawButton({16, 128, 64, 28, "Vol-", C_PANEL});
   drawButton({88, 128, 64, 28, "Vol+", C_PANEL});
   drawButton({160, 128, 64, 28, "Tone", C_PINK});
   drawButton({232, 128, 72, 28, "Sample", C_BLUE});
-  drawButton({52, 164, 216, 30, "Voice Run", C_AMBER});
+  drawButton({52, 160, 216, 26, "Voice Run", C_AMBER});
   drawTabs();
 }
 
@@ -1121,17 +1133,29 @@ void playChime(int kind = 0) {
   int freqs[3] = {523, kind == 1 ? 392 : 659, kind == 2 ? 330 : 784};
   Serial.printf("[audio] chime kind=%d volume=%d%% amplitude=%d\n", kind, audioVolumePercent, amplitude);
   for (int f : freqs) {
-    for (int i = 0; i < sampleRate / 5; i++) {
-      float phase = 2.0f * PI * f * i / sampleRate;
-      float envelope = 1.0f - ((float)i / (sampleRate / 5));
-      int16_t sample = (int16_t)(sin(phase) * amplitude * envelope);
-      int16_t stereo[2] = {sample, sample};
+    const int framesTotal = sampleRate / 3;
+    int16_t frames[128 * 2];
+    for (int base = 0; base < framesTotal; base += 128) {
+      int framesThis = min(128, framesTotal - base);
+      for (int i = 0; i < framesThis; i++) {
+        int frame = base + i;
+        float phase = 2.0f * PI * f * frame / sampleRate;
+        float envelope = 1.0f - ((float)frame / framesTotal);
+        int16_t sample = (int16_t)(sin(phase) * amplitude * envelope);
+        frames[i * 2] = sample;
+        frames[i * 2 + 1] = sample;
+      }
       size_t written = 0;
-      i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &written, pdMS_TO_TICKS(20));
-      if ((i % 128) == 0) yield();
+      esp_err_t err = i2s_write(I2S_NUM_0, frames, framesThis * 2 * sizeof(int16_t), &written, pdMS_TO_TICKS(100));
+      if (err != ESP_OK || written == 0) {
+        Serial.printf("[audio] i2s_write err=%d written=%u\n", (int)err, (unsigned)written);
+      }
+      yield();
     }
-    yield();
   }
+  int16_t silence[128 * 2] = {0};
+  size_t written = 0;
+  i2s_write(I2S_NUM_0, silence, sizeof(silence), &written, pdMS_TO_TICKS(100));
   lastStatus = "Tone played at " + String(audioVolumePercent) + "%.";
 }
 
@@ -1437,15 +1461,26 @@ void askAssistant(const String& text) {
 }
 
 int sampleMicLevel() {
-  if (!micReady) return 0;
-  int32_t samples[256];
+  if (!micReady) {
+    lastMicBytes = 0;
+    lastMicLevel = 0;
+    return 0;
+  }
+  int32_t samples[384];
   size_t bytesRead = 0;
   i2s_read(I2S_NUM_1, samples, sizeof(samples), &bytesRead, pdMS_TO_TICKS(120));
+  lastMicBytes = (int)bytesRead;
   int count = bytesRead / sizeof(int32_t);
-  if (count <= 0) return 0;
+  if (count <= 0) {
+    lastMicLevel = 0;
+    Serial.println("[audio] mic read returned no samples");
+    return 0;
+  }
   uint64_t sum = 0;
   for (int i = 0; i < count; i++) sum += abs(samples[i] >> 14);
-  return constrain((int)(sum / count), 0, 1023);
+  lastMicLevel = constrain((int)(sum / count), 0, 1023);
+  Serial.printf("[audio] mic level=%d bytes=%d count=%d\n", lastMicLevel, lastMicBytes, count);
+  return lastMicLevel;
 }
 
 void handleTouch(int x, int y) {
@@ -1521,7 +1556,7 @@ void handleTouch(int x, int y) {
       int level = sampleMicLevel();
       drawMic();
       tft.fillRoundRect(18, 70, map(level, 0, 1023, 6, 284), 10, 5, C_GREEN);
-    } else if (inBox(x, y, {52, 164, 216, 30, "", C_AMBER})) {
+    } else if (inBox(x, y, {52, 160, 216, 26, "", C_AMBER})) {
       runWorkflow("ESP32-S3 Wisp voice button pressed. Audio upload support will be added next.");
     }
   }
@@ -1545,22 +1580,27 @@ void setupAudio() {
   ampConfig.dma_buf_len = 256;
   ampConfig.use_apll = false;
   i2s_pin_config_t ampPins = {PIN_AMP_BCLK, PIN_AMP_LRCLK, PIN_AMP_DIN, I2S_PIN_NO_CHANGE};
-  ampReady = i2s_driver_install(I2S_NUM_0, &ampConfig, 0, nullptr) == ESP_OK &&
-             i2s_set_pin(I2S_NUM_0, &ampPins) == ESP_OK;
+  esp_err_t ampInstall = i2s_driver_install(I2S_NUM_0, &ampConfig, 0, nullptr);
+  esp_err_t ampPin = ampInstall == ESP_OK ? i2s_set_pin(I2S_NUM_0, &ampPins) : ampInstall;
+  ampReady = ampInstall == ESP_OK && ampPin == ESP_OK;
+  if (ampReady) i2s_zero_dma_buffer(I2S_NUM_0);
+  Serial.printf("[audio] amp install=%d pin=%d pins bclk=%d lrclk=%d din=%d\n", (int)ampInstall, (int)ampPin, PIN_AMP_BCLK, PIN_AMP_LRCLK, PIN_AMP_DIN);
 
   i2s_config_t micConfig = {};
   micConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
   micConfig.sample_rate = 16000;
   micConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
-  micConfig.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+  micConfig.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
   micConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
   micConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
   micConfig.dma_buf_count = 4;
   micConfig.dma_buf_len = 256;
   micConfig.use_apll = false;
   i2s_pin_config_t micPins = {PIN_MIC_SCK, PIN_MIC_WS, I2S_PIN_NO_CHANGE, PIN_MIC_SD};
-  micReady = i2s_driver_install(I2S_NUM_1, &micConfig, 0, nullptr) == ESP_OK &&
-             i2s_set_pin(I2S_NUM_1, &micPins) == ESP_OK;
+  esp_err_t micInstall = i2s_driver_install(I2S_NUM_1, &micConfig, 0, nullptr);
+  esp_err_t micPin = micInstall == ESP_OK ? i2s_set_pin(I2S_NUM_1, &micPins) : micInstall;
+  micReady = micInstall == ESP_OK && micPin == ESP_OK;
+  Serial.printf("[audio] mic install=%d pin=%d pins sck=%d ws=%d sd=%d\n", (int)micInstall, (int)micPin, PIN_MIC_SCK, PIN_MIC_WS, PIN_MIC_SD);
 }
 
 void setupWifi() {
@@ -1632,12 +1672,14 @@ void loop() {
 
   processBleCommand();
 
-#if WISP_ENABLE_BACKGROUND_HUB_POLL
-  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastCheckinMs > 120000) {
+#if WISP_ENABLE_HUB_HEARTBEAT
+  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastCheckinMs > WISP_HUB_HEARTBEAT_MS) {
     lastCheckinMs = millis();
     checkin();
   }
-  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastPollMs > 8000) {
+#endif
+#if WISP_ENABLE_BACKGROUND_HUB_POLL
+  if (!actionBusy && WiFi.isConnected() && token.length() && now - lastPollMs > WISP_COMMAND_POLL_MS) {
     lastPollMs = millis();
     pollCommands();
     bleNotifyState();
