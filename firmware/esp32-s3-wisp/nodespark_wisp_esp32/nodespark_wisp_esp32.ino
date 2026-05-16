@@ -1152,9 +1152,14 @@ void pollCommands() {
 }
 
 void runWorkflow(const String& text) {
+  if (!WiFi.isConnected()) {
+    lastStatus = "Connect Wi-Fi from Set > Conn first.";
+    showCard("Wi-Fi Needed", lastStatus, C_AMBER);
+    return;
+  }
   if (!token.length()) {
     lastStatus = "Pair device before running workflows.";
-    redraw();
+    showCard("Pair Required", "Open Pair, enter the NodeSparkHub device code, then try Ask AI again.", C_AMBER);
     return;
   }
   String path = "/workflows/" + defaultWorkflow + "/run";
@@ -1177,10 +1182,11 @@ void runWorkflow(const String& text) {
     }
     lastStatus = "Workflow sent to Hub.";
     if (output.length()) showCard("Wisp Assistant", output.substring(0, 180), C_PINK);
-    else redraw();
+    else showCard("Wisp Assistant", "Workflow sent to NodeSparkHub. No text response was returned yet.", C_GREEN);
   } else {
-    lastStatus = "Workflow failed.";
-    redraw();
+    String failure = lastStatus.length() ? lastStatus : "Workflow failed.";
+    lastStatus = failure;
+    showCard("Workflow Failed", failure, C_RED);
   }
 }
 
