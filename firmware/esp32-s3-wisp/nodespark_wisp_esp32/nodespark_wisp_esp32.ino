@@ -181,6 +181,19 @@ String macId() {
   return String(buf);
 }
 
+String deviceUuidFromMac() {
+  uint64_t mac = ESP.getEfuseMac();
+  char buf[37];
+  snprintf(
+    buf,
+    sizeof(buf),
+    "00000000-0000-4000-8000-%04X%08X",
+    (uint16_t)(mac >> 32),
+    (uint32_t)mac
+  );
+  return String(buf);
+}
+
 String jsonEscape(const String& value) {
   String out;
   for (size_t i = 0; i < value.length(); i++) {
@@ -1019,9 +1032,16 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.println("[boot] NodeSpark Wisp ESP32-S3 starting");
-  deviceId = macId();
-  Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   prefs.begin("wisp", false);
+  deviceId = prefs.getString("deviceId", "");
+  String stableDeviceId = deviceUuidFromMac();
+  if (deviceId != stableDeviceId) {
+    deviceId = stableDeviceId;
+    prefs.putString("deviceId", deviceId);
+    prefs.remove("token");
+    prefs.remove("hubId");
+  }
+  Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   token = prefs.getString("token", "");
   loadNetworkSettings();
 
