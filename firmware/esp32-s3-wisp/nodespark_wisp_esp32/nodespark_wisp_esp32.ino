@@ -438,36 +438,36 @@ String inputTitle() {
 
 void drawSettingsMain() {
   drawHeader("Wisp Setup", C_AMBER);
-  drawButton({8, 50, 66, 30, "Scan", C_BLUE});
-  drawButton({80, 50, 66, 30, "Def", C_PANEL});
-  drawButton({152, 50, 76, 30, "Conn", C_GREEN});
-  drawButton({234, 50, 78, 30, "Save", C_PINK});
+  drawButton({8, 48, 72, 28, "Scan", C_BLUE});
+  drawButton({86, 48, 72, 28, "Def", C_PANEL});
+  drawButton({164, 48, 72, 28, "Conn", C_GREEN});
+  drawButton({242, 48, 70, 28, "Save", C_PINK});
 
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString("SSID", 14, 90, 2);
-  tft.fillRoundRect(74, 86, 232, 24, 6, C_PANEL);
+  tft.drawString("SSID", 14, 86, 2);
+  tft.fillRoundRect(74, 82, 232, 24, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  tft.drawString(wifiSsid.length() ? wifiSsid : "tap or scan", 82, 92, 2);
+  tft.drawString(wifiSsid.length() ? wifiSsid : "tap or scan", 82, 88, 2);
 
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString("Pass", 14, 120, 2);
-  tft.fillRoundRect(74, 116, 232, 24, 6, C_PANEL);
+  tft.drawString("Pass", 14, 114, 2);
+  tft.fillRoundRect(74, 110, 232, 24, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  tft.drawString(wifiPassword.length() ? repeatedChar('*', min(14, (int)wifiPassword.length())) : "tap to enter", 82, 122, 2);
+  tft.drawString(wifiPassword.length() ? repeatedChar('*', min(14, (int)wifiPassword.length())) : "tap to enter", 82, 116, 2);
 
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString("URL", 14, 150, 2);
-  tft.fillRoundRect(74, 146, 232, 24, 6, C_PANEL);
+  tft.drawString("URL", 14, 142, 2);
+  tft.fillRoundRect(74, 138, 232, 24, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  drawWrapped(hubBase, 82, 152, 27, 1, ILI9341_WHITE);
+  drawWrapped(hubBase, 82, 144, 27, 1, ILI9341_WHITE);
 
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString("Port", 14, 180, 2);
-  tft.fillRoundRect(74, 176, 90, 22, 6, C_PANEL);
+  tft.drawString("Port", 14, 170, 2);
+  tft.fillRoundRect(74, 166, 90, 22, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  tft.drawString(hubPort.length() ? hubPort : "none", 82, 182, 2);
+  tft.drawString(hubPort.length() ? hubPort : "none", 82, 172, 2);
   tft.setTextColor(WiFi.isConnected() ? C_GREEN : C_AMBER, C_BG);
-  drawWrapped(lastStatus, 174, 176, 16, 1, WiFi.isConnected() ? C_GREEN : C_AMBER);
+  drawWrapped(lastStatus, 174, 166, 16, 2, WiFi.isConnected() ? C_GREEN : C_AMBER);
   drawTabs();
 }
 
@@ -476,7 +476,7 @@ void drawWifiList() {
   drawButton({12, 50, 90, 28, "Rescan", C_BLUE});
   drawButton({218, 50, 90, 28, "Back", C_AMBER});
   if (!scannedCount) {
-    drawWrapped("No networks found. Tap Rescan or enter SSID manually from Setup.", 14, 96, 36, 3, C_MUTED);
+    drawWrapped(lastStatus.startsWith("Scan failed") ? lastStatus : "No networks found. Tap Rescan or enter SSID manually from Setup.", 14, 96, 36, 3, C_MUTED);
   }
   for (int i = 0; i < scannedCount; i++) {
     int y = 84 + i * 19;
@@ -573,9 +573,12 @@ bool connectWifi(bool splash) {
     return false;
   }
   Serial.printf("[wifi] connecting to %s\n", wifiSsid.c_str());
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.disconnect(false);
-  delay(120);
+  WiFi.scanDelete();
+  delay(350);
   WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
   lastStatus = "Connecting Wi-Fi...";
   if (splash) drawSplash(lastStatus);
@@ -593,13 +596,25 @@ void scanWifiNetworks() {
   setupView = SETUP_WIFI_LIST;
   drawHeader("Choose Wi-Fi", C_BLUE);
   drawWrapped("Scanning nearby networks...", 16, 72, 34, 2, C_MUTED);
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  int found = WiFi.scanNetworks(false, true);
+  WiFi.setSleep(false);
+  WiFi.disconnect(false);
+  WiFi.scanDelete();
+  delay(350);
+  int found = WiFi.scanNetworks(false, true, false, 450);
+  if (found < 0) {
+    scannedCount = 0;
+    lastStatus = "Scan failed " + String(found);
+    drawWifiList();
+    return;
+  }
   scannedCount = constrain(found, 0, 6);
   for (int i = 0; i < scannedCount; i++) {
     scannedSsids[i] = WiFi.SSID(i);
     scannedRssi[i] = WiFi.RSSI(i);
   }
+  lastStatus = "Found " + String(scannedCount) + " networks";
   drawWifiList();
 }
 
@@ -686,22 +701,22 @@ void handleSetupTouch(int x, int y) {
     return;
   }
 
-  if (inBox(x, y, {8, 50, 66, 30, "", C_BLUE})) scanWifiNetworks();
-  else if (inBox(x, y, {80, 50, 66, 30, "", C_PANEL})) {
+  if (inBox(x, y, {4, 44, 78, 38, "", C_BLUE})) scanWifiNetworks();
+  else if (inBox(x, y, {82, 44, 78, 38, "", C_PANEL})) {
     loadCompiledDefaults();
     saveNetworkSettings();
     drawSettingsMain();
-  } else if (inBox(x, y, {152, 50, 76, 30, "", C_GREEN})) {
+  } else if (inBox(x, y, {160, 44, 78, 38, "", C_GREEN})) {
     saveNetworkSettings();
     connectWifi(false);
   }
-  else if (inBox(x, y, {234, 50, 78, 30, "", C_PINK})) {
+  else if (inBox(x, y, {238, 44, 78, 38, "", C_PINK})) {
     saveNetworkSettings();
     drawSettingsMain();
-  } else if (inBox(x, y, {74, 86, 232, 24, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
-  else if (inBox(x, y, {74, 116, 232, 24, "", C_PANEL})) beginInput(INPUT_WIFI_PASSWORD, wifiPassword);
-  else if (inBox(x, y, {74, 146, 232, 24, "", C_PANEL})) beginInput(INPUT_HUB_BASE, hubBase);
-  else if (inBox(x, y, {74, 176, 90, 22, "", C_PANEL})) beginInput(INPUT_HUB_PORT, hubPort);
+  } else if (inBox(x, y, {70, 78, 240, 30, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
+  else if (inBox(x, y, {70, 106, 240, 30, "", C_PANEL})) beginInput(INPUT_WIFI_PASSWORD, wifiPassword);
+  else if (inBox(x, y, {70, 134, 240, 30, "", C_PANEL})) beginInput(INPUT_HUB_BASE, hubBase);
+  else if (inBox(x, y, {70, 162, 100, 30, "", C_PANEL})) beginInput(INPUT_HUB_PORT, hubPort);
 }
 
 String request(const String& method, const String& path, const String& body = "", bool auth = true) {
