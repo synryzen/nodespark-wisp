@@ -53,6 +53,15 @@
 #ifndef WISP_WIFI_TX_POWER
 #define WISP_WIFI_TX_POWER WIFI_POWER_5dBm
 #endif
+#ifndef WISP_ENABLE_SD
+#define WISP_ENABLE_SD 1
+#endif
+#ifndef WISP_SD_CS_PIN
+#define WISP_SD_CS_PIN 14
+#endif
+#ifndef WISP_ASYNC_WORKFLOWS
+#define WISP_ASYNC_WORKFLOWS 1
+#endif
 #if WISP_ENABLE_BLE
 #include <BLE2902.h>
 #include <BLEDevice.h>
@@ -69,6 +78,7 @@ static constexpr int PIN_SPI_MISO = 13;
 static constexpr int PIN_SPI_SCK = 12;
 static constexpr int PIN_TOUCH_CS = 7;
 static constexpr int PIN_TOUCH_IRQ = 6;
+static constexpr int PIN_SD_CS = WISP_SD_CS_PIN;
 
 static constexpr int PIN_AMP_BCLK = 4;
 static constexpr int PIN_AMP_LRCLK = 5;
@@ -101,17 +111,32 @@ public:
 
   WispTft() : display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST) {}
 
+  void releaseSharedSpiDevices() {
+    digitalWrite(PIN_TFT_CS, HIGH);
+    digitalWrite(PIN_TOUCH_CS, HIGH);
+#if WISP_ENABLE_SD
+    digitalWrite(PIN_SD_CS, HIGH);
+#endif
+  }
+
   void init() {
     pinMode(PIN_TFT_CS, OUTPUT);
     pinMode(PIN_TOUCH_CS, OUTPUT);
-    digitalWrite(PIN_TFT_CS, HIGH);
-    digitalWrite(PIN_TOUCH_CS, HIGH);
+#if WISP_ENABLE_SD
+    pinMode(PIN_SD_CS, OUTPUT);
+#endif
+    releaseSharedSpiDevices();
     SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_TFT_CS);
     display.begin(8000000);
-    digitalWrite(PIN_TFT_CS, HIGH);
+    releaseSharedSpiDevices();
   }
 
-  void guardDisplay() { digitalWrite(PIN_TOUCH_CS, HIGH); }
+  void guardDisplay() {
+    digitalWrite(PIN_TOUCH_CS, HIGH);
+#if WISP_ENABLE_SD
+    digitalWrite(PIN_SD_CS, HIGH);
+#endif
+  }
   void setRotation(uint8_t rotation) { guardDisplay(); display.setRotation(rotation); }
   void fillScreen(uint16_t color) { guardDisplay(); display.fillScreen(color); }
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { guardDisplay(); display.fillRect(x, y, w, h, color); }
@@ -569,7 +594,13 @@ void drawMic() {
   tft.drawString("Live level", 16, 58, 4);
   drawButton({20, 150, 128, 38, "Sample", C_BLUE});
   drawButton({172, 150, 128, 38, "Voice Run", C_AMBER});
-  drawWrapped("Voice Run sends a workflow event. Raw audio upload is reserved for a later Hub endpoint.", 16, 102, 36, 2, C_MUTED);
+  String status = "Amp ";
+  status += ampReady ? "ready" : "off";
+  status += "   Mic ";
+  status += micReady ? "ready" : "off";
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString(status, 16, 96, 2);
+  drawWrapped("Voice Run sends a workflow event. Raw audio upload is reserved for a later Hub endpoint.", 16, 118, 36, 2, C_MUTED);
   drawTabs();
 }
 
@@ -682,15 +713,24 @@ void redraw() {
 bool touched(int& x, int& y) {
   digitalWrite(PIN_TFT_CS, HIGH);
   digitalWrite(PIN_TOUCH_CS, HIGH);
+#if WISP_ENABLE_SD
+  digitalWrite(PIN_SD_CS, HIGH);
+#endif
   delayMicroseconds(8);
   if (!touch.touched()) {
     digitalWrite(PIN_TOUCH_CS, HIGH);
     digitalWrite(PIN_TFT_CS, HIGH);
+#if WISP_ENABLE_SD
+    digitalWrite(PIN_SD_CS, HIGH);
+#endif
     return false;
   }
   TS_Point p = touch.getPoint();
   digitalWrite(PIN_TOUCH_CS, HIGH);
   digitalWrite(PIN_TFT_CS, HIGH);
+#if WISP_ENABLE_SD
+  digitalWrite(PIN_SD_CS, HIGH);
+#endif
   x = map(p.x, WISP_TOUCH_MIN_X, WISP_TOUCH_MAX_X, 0, SCREEN_W);
   y = map(p.y, WISP_TOUCH_MIN_Y, WISP_TOUCH_MAX_Y, 0, SCREEN_H);
   x = constrain(x, 0, SCREEN_W - 1);
@@ -1006,16 +1046,21 @@ void drawDashboard(const String& title, const String& label, const String& value
 }
 
 void playChime(int kind = 0) {
-  if (!ampReady) return;
+  if (!ampReady) {
+    lastStatus = "Amp not ready. Check MAX98357 wiring.";
+    Serial.println("[audio] chime skipped: amp not ready");
+    return;
+  }
   const int sampleRate = 22050;
-  int freqs[3] = {660, kind == 1 ? 330 : 880, kind == 2 ? 220 : 1320};
+  int freqs[3] = {523, kind == 1 ? 392 : 659, kind == 2 ? 330 : 784};
   for (int f : freqs) {
-    for (int i = 0; i < sampleRate / 10; i++) {
+    for (int i = 0; i < sampleRate / 5; i++) {
       float phase = 2.0f * PI * f * i / sampleRate;
-      int16_t sample = (int16_t)(sin(phase) * 9000);
+      float envelope = 1.0f - ((float)i / (sampleRate / 5));
+      int16_t sample = (int16_t)(sin(phase) * 14000 * envelope);
       int16_t stereo[2] = {sample, sample};
       size_t written = 0;
-      i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &written, portMAX_DELAY);
+      i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &written, pdMS_TO_TICKS(20));
       if ((i % 128) == 0) yield();
     }
     yield();
@@ -1281,6 +1326,9 @@ void runWorkflow(const String& text) {
   }
 
   String path = "/workflows/" + urlEncodePath(workflowName) + "/run";
+#if WISP_ASYNC_WORKFLOWS
+  path += "?async=1";
+#endif
   String body = "{";
   body += "\"source\":\"wisp-esp32\",";
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
@@ -1298,10 +1346,16 @@ void runWorkflow(const String& text) {
       if (!output.length()) output = doc["result"].as<String>();
       if (!output.length()) output = doc["message"].as<String>();
       if (!output.length()) output = doc["status"].as<String>();
+      if (!output.length()) output = doc["runId"].as<String>();
     }
     lastStatus = "Workflow sent to Hub.";
+#if WISP_ASYNC_WORKFLOWS
+    if (output.length()) showCard(workflowName, "Sent to NodeSparkHub. Run " + output.substring(0, 48), C_GREEN);
+    else showCard(workflowName, "Sent to NodeSparkHub. Watch the Hub run history for the AI response.", C_GREEN);
+#else
     if (output.length()) showCard(workflowName, output.substring(0, 180), C_PINK);
     else showCard(workflowName, "Workflow sent to NodeSparkHub. No text response was returned yet.", C_GREEN);
+#endif
   } else {
     String failure = lastStatus.length() ? lastStatus : "Workflow failed.";
     lastStatus = failure;

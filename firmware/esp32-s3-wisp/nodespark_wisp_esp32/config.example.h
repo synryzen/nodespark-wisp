@@ -33,6 +33,9 @@
 #define WISP_WIFI_CONNECT_TIMEOUT_MS 7000
 #define WISP_TOUCH_POLL_MS 35
 #define WISP_WIFI_TX_POWER WIFI_POWER_5dBm
+#define WISP_ENABLE_SD 1
+#define WISP_SD_CS_PIN 14
+#define WISP_ASYNC_WORKFLOWS 1
 
 // Touch calibration varies by 2.8 inch ILI9341/XPT2046 module.
 // If touches are reversed or offset, adjust these values after first boot.
