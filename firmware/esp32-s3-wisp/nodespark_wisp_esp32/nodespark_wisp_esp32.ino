@@ -6,6 +6,7 @@
 #include <Preferences.h>
 #include <SPI.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <XPT2046_Touchscreen.h>
 #include "driver/i2s.h"
 #include "mascot_logo.h"
@@ -245,6 +246,25 @@ void saveNetworkSettings() {
   lastStatus = "Settings saved.";
 }
 
+void loadCompiledDefaults() {
+  wifiSsid = WISP_WIFI_SSID;
+  wifiPassword = WISP_WIFI_PASSWORD;
+  hubBase = normalizedHubBase(WISP_HUB_URL);
+  hubPort = portFromHubUrl(WISP_HUB_URL, "8787");
+  updateHubUrl();
+  lastStatus = "Defaults loaded. Tap Connect.";
+}
+
+String wifiStatusName(wl_status_t status) {
+  if (status == WL_CONNECTED) return "connected";
+  if (status == WL_NO_SSID_AVAIL) return "SSID not found";
+  if (status == WL_CONNECT_FAILED) return "bad password";
+  if (status == WL_CONNECTION_LOST) return "signal lost";
+  if (status == WL_DISCONNECTED) return "disconnected";
+  if (status == WL_IDLE_STATUS) return "idle";
+  return "status " + String((int)status);
+}
+
 void drawHeader(const String& title, uint16_t accent = C_BLUE) {
   tft.fillScreen(C_BG);
   tft.fillRoundRect(6, 6, SCREEN_W - 12, 36, 8, accent);
@@ -405,9 +425,10 @@ String inputTitle() {
 
 void drawSettingsMain() {
   drawHeader("Wisp Setup", C_AMBER);
-  drawButton({12, 50, 92, 30, "Scan", C_BLUE});
-  drawButton({114, 50, 92, 30, "Connect", C_GREEN});
-  drawButton({216, 50, 92, 30, "Save", C_PINK});
+  drawButton({8, 50, 66, 30, "Scan", C_BLUE});
+  drawButton({80, 50, 66, 30, "Def", C_PANEL});
+  drawButton({152, 50, 76, 30, "Conn", C_GREEN});
+  drawButton({234, 50, 78, 30, "Save", C_PINK});
 
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString("SSID", 14, 90, 2);
@@ -459,8 +480,7 @@ void drawKeyboard() {
   tft.fillRoundRect(8, 48, 304, 28, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
   String shown = editBuffer;
-  if (inputTarget == INPUT_WIFI_PASSWORD && shown.length()) shown = repeatedChar('*', min(22, (int)shown.length()));
-  if (!shown.length()) shown = inputTarget == INPUT_HUB_BASE ? "https://..." : "";
+  if (!shown.length()) shown = inputTarget == INPUT_HUB_BASE ? "http:// or https://" : "";
   drawWrapped(shown, 16, 56, 34, 1, ILI9341_WHITE);
 
   const char* rows0[] = {"qwertyuiop", "asdfghjkl@", "zxcvbnm.-_"};
@@ -549,7 +569,9 @@ bool connectWifi(bool splash) {
   else drawSettingsMain();
   uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) delay(250);
-  lastStatus = WiFi.isConnected() ? "Wi-Fi " + WiFi.localIP().toString() : "Wi-Fi failed.";
+  lastStatus = WiFi.isConnected()
+    ? "Wi-Fi " + WiFi.localIP().toString()
+    : "Wi-Fi " + wifiStatusName(WiFi.status());
   Serial.printf("[wifi] %s\n", lastStatus.c_str());
   return WiFi.isConnected();
 }
@@ -651,12 +673,16 @@ void handleSetupTouch(int x, int y) {
     return;
   }
 
-  if (inBox(x, y, {12, 50, 92, 30, "", C_BLUE})) scanWifiNetworks();
-  else if (inBox(x, y, {114, 50, 92, 30, "", C_GREEN})) {
+  if (inBox(x, y, {8, 50, 66, 30, "", C_BLUE})) scanWifiNetworks();
+  else if (inBox(x, y, {80, 50, 66, 30, "", C_PANEL})) {
+    loadCompiledDefaults();
+    saveNetworkSettings();
+    drawSettingsMain();
+  } else if (inBox(x, y, {152, 50, 76, 30, "", C_GREEN})) {
     saveNetworkSettings();
     connectWifi(false);
   }
-  else if (inBox(x, y, {216, 50, 92, 30, "", C_PINK})) {
+  else if (inBox(x, y, {234, 50, 78, 30, "", C_PINK})) {
     saveNetworkSettings();
     drawSettingsMain();
   } else if (inBox(x, y, {74, 86, 232, 24, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
@@ -666,9 +692,26 @@ void handleSetupTouch(int x, int y) {
 }
 
 String request(const String& method, const String& path, const String& body = "", bool auth = true) {
-  if (!WiFi.isConnected()) return "";
+  if (!WiFi.isConnected()) {
+    lastStatus = "No Wi-Fi. Use Set > Conn.";
+    return "";
+  }
+  String url = hubUrl + path;
   HTTPClient http;
-  http.begin(hubUrl + path);
+  http.setTimeout(6000);
+  bool started = false;
+  WiFiClient plainClient;
+  WiFiClientSecure secureClient;
+  if (url.startsWith("https://")) {
+    secureClient.setInsecure();
+    started = http.begin(secureClient, url);
+  } else {
+    started = http.begin(plainClient, url);
+  }
+  if (!started) {
+    lastStatus = "Bad Hub URL.";
+    return "";
+  }
   http.addHeader("Accept", "application/json");
   http.addHeader("Content-Type", "application/json");
   http.addHeader("User-Agent", APP_VERSION);
@@ -681,8 +724,10 @@ String request(const String& method, const String& path, const String& body = ""
   int code = method == "GET" ? http.GET() : http.POST(body);
   String payload = code > 0 ? http.getString() : "";
   http.end();
+  Serial.printf("[hub] %s %s -> %d\n", method.c_str(), url.c_str(), code);
   if (code < 200 || code >= 300) {
-    lastStatus = "HTTP " + String(code) + " " + payload.substring(0, 70);
+    lastStatus = code > 0 ? "Hub HTTP " + String(code) : "Hub offline/URL wrong";
+    if (payload.length()) lastStatus += " " + payload.substring(0, 40);
     return "";
   }
   return payload;
@@ -695,6 +740,10 @@ void ackCommand(const String& id, const String& status, const String& result) {
 }
 
 bool pairHub() {
+  if (!WiFi.isConnected()) {
+    lastStatus = "No Wi-Fi. Open Set > Conn.";
+    return false;
+  }
   if (pairCode.length() < 4) {
     lastStatus = "Enter the pairing code first.";
     return false;
@@ -709,9 +758,15 @@ bool pairHub() {
   String payload = request("POST", "/pair", body, false);
   if (!payload.length()) return false;
   StaticJsonDocument<1024> doc;
-  if (deserializeJson(doc, payload)) return false;
+  if (deserializeJson(doc, payload)) {
+    lastStatus = "Pair failed: bad Hub reply.";
+    return false;
+  }
   token = doc["deviceToken"].as<String>();
-  if (!token.length()) return false;
+  if (!token.length()) {
+    lastStatus = "Pair failed: code rejected.";
+    return false;
+  }
   prefs.putString("token", token);
   prefs.putString("hubId", doc["hubId"].as<String>());
   pairCode = "";
