@@ -78,6 +78,15 @@ class HubClient:
         encoded = quote(workflow, safe="")
         return self._request("POST", f"/workflows/{encoded}/run?async=1", json=payload)
 
+    def ask_assistant(self, text: str) -> dict[str, Any]:
+        payload = {
+            "deviceId": self.device_id,
+            "deviceName": self.device_name,
+            "text": text,
+            "source": "wisp-whisplay",
+        }
+        return self._request("POST", "/wisp/assistant", json=payload)
+
     def run_status(self, run_id: str) -> dict[str, Any]:
         return self._request("GET", f"/runs/{quote(run_id, safe='')}/status")
 

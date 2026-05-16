@@ -172,7 +172,7 @@ class NodeSparkWispApp:
                 self.display.show(title, body, "Sent from NodeSparkHub", rgb, self._status_footer())
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", "displayed")
-            elif kind in {"card", "alert", "success", "warning", "error", "ai", "voice", "workflow", "timer", "weather", "statuscard", "demo", "showcase", "promo"}:
+            elif kind in {"card", "alert", "success", "warning", "error", "ai", "voice", "timer", "weather", "statuscard", "promo"}:
                 title = str(command.get("title") or self._title_for_kind(kind))
                 body = self._command_text(command)
                 subtitle = str(command.get("subtitle") or command.get("detail") or "")
@@ -200,6 +200,18 @@ class NodeSparkWispApp:
                 self.display.show_dashboard(title, label, value, items, self._rgb(command, (45, 160, 255)), self._status_footer())
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", "dashboard shown")
+            elif kind in {"health", "status", "devicehealth"}:
+                status = read_status()
+                items = [
+                    f"Hub: {self.cfg.hub.base_url}",
+                    f"Workflow: {self.current_workflow()}",
+                    f"IP: {status.ip or 'offline'}",
+                    f"Battery: {status.battery or 'unknown'}",
+                    f"Temp: {status.temperature or 'unknown'}",
+                ]
+                self.display.show_dashboard("Device Health", "Wisp", "Ready", items, self._rgb(command, (35, 190, 95)), self._status_footer(force=True))
+                self._chime("success")
+                self.hub.ack_command(command_id, "completed", "health shown")
             elif kind in {"notify", "notification", "inbox"}:
                 note = {
                     "title": str(command.get("title") or "NodeSparkHub"),
@@ -239,6 +251,27 @@ class NodeSparkWispApp:
                 response = self.hub.run_workflow(workflow, payload)
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", f"runId={response.get('runId', '')}")
+            elif kind in {"assistant", "ask", "askai"}:
+                text = self._command_text(command) or "Help me from NodeSpark Wisp."
+                self._animate("Wisp Assistant", "Asking NodeSparkHub AI", self._rgb(command, (120, 90, 255)), seconds=0.7)
+                try:
+                    response = self.hub.ask_assistant(text)
+                    reply = str(response.get("reply") or response.get("message") or response.get("error") or "No assistant reply.")
+                    ok = bool(response.get("ok", True))
+                    self.display.show_card("Wisp Assistant" if ok else "AI Setup Needed", reply[:280], "NodeSparkHub AI", "ai", "ai" if ok else "warning", self._rgb(command, (120, 90, 255)), self._status_footer(force=True))
+                    self._chime("success" if ok else "error")
+                    self.hub.ack_command(command_id, "completed" if ok else "failed", reply[:500])
+                except Exception:
+                    workflow = str(command.get("workflowName") or self.current_workflow())
+                    payload = {
+                        "source": "whisplay-assistant-fallback",
+                        "deviceId": self.state.device_id,
+                        "text": text,
+                        "input": text,
+                    }
+                    response = self.hub.run_workflow_async(workflow, payload)
+                    self.display.show_card("Wisp Assistant", "Direct AI endpoint was unavailable, so the request was sent to a Hub workflow.", "Fallback workflow", "ai", "warning", self._rgb(command, (255, 180, 50)), self._status_footer(force=True))
+                    self.hub.ack_command(command_id, "completed", f"workflowRun={response.get('runId', '')}")
             elif kind in {"selectworkflow", "select"}:
                 name = str(command.get("workflowName") or "")
                 favorites = self.cfg.hub.favorite_workflows or [self.cfg.hub.default_workflow]

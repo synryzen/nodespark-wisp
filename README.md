@@ -89,11 +89,16 @@ Current Wisp capabilities:
 - Show animated listening, thinking, running, success, and error screens.
 - Show text messages from NodeSparkHub.
 - Show rich branded cards with icons, subtitles, accent colors, and progress.
+- Ask NodeSparkHub's selected AI profile through the Wisp Assistant endpoint,
+  with workflow fallback when direct AI is not configured.
 - Show approval prompts where short press approves and hold rejects.
 - Show a notification center with recent Hub alerts.
 - Show compact dashboards with metrics and list items.
 - Show icon/graphics grids for visual demos.
-- Show QR codes for pairing, identity, links, or workflow data.
+- Show QR/link screens for pairing, identity, Hub URLs, or workflow data.
+- Show device-health screens for Wi-Fi, Hub pairing, battery/temperature when
+  available, SD status, and audio readiness.
+- Select the active Hub workflow from NodeSparkHub and save it on the ESP32 Wisp.
 - Speak text from Hub through the onboard speaker when `espeak-ng` is installed.
 - Play startup, listening, success, and error chimes when audio is available.
 - Set the RGB LED color from Hub commands.
@@ -176,10 +181,11 @@ bash scripts/build_esp32_s3.sh
 
 The ESP32-S3 firmware currently supports Wi-Fi Hub pairing, check-ins, Hub
 command polling, touch navigation, touchscreen approvals, local demo actions,
-workflow triggering, `Ask AI` through the NodeSparkHub `Wisp Assistant`
-workflow, I2S chimes, and INMP441 mic level testing. ESP32-S3 Bluetooth Mobile
-Bridge code is present but disabled by default for stability; use the Raspberry
-Pi Wisp for reliable iPhone BLE bridge demos today.
+workflow triggering, direct `Ask AI` through NodeSparkHub, rich cards, dashboard
+items, notifications, icon grids, QR/link screens, startup logo screens, device
+health checks, I2S chimes, and INMP441 mic level testing. ESP32-S3 Bluetooth
+Mobile Bridge code is present but disabled by default for stability; use the
+Raspberry Pi Wisp for reliable iPhone BLE bridge demos today.
 
 ## Quick Install
 

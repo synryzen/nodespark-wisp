@@ -172,6 +172,7 @@ public:
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { guardDisplay(); display.fillRect(x, y, w, h, color); }
   void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { guardDisplay(); display.drawRect(x, y, w, h, color); }
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) { guardDisplay(); display.drawFastVLine(x, y, h, color); }
+  void fillCircle(int16_t x, int16_t y, int16_t r, uint16_t color) { guardDisplay(); display.fillCircle(x, y, r, color); }
   void fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) { guardDisplay(); display.fillRoundRect(x, y, w, h, r, color); }
   void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) { guardDisplay(); display.drawRoundRect(x, y, w, h, r, color); }
   void drawRGBBitmap(int16_t x, int16_t y, const uint16_t* bitmap, int16_t w, int16_t h) { guardDisplay(); display.drawRGBBitmap(x, y, bitmap, w, h); }
@@ -269,6 +270,10 @@ BLECharacteristic* bleEventCharacteristic = nullptr;
 char pendingBleRaw[512] = {0};
 volatile bool pendingBleCommand = false;
 #endif
+static constexpr int NOTIFICATION_LIMIT = 5;
+String notificationTitles[NOTIFICATION_LIMIT];
+String notificationBodies[NOTIFICATION_LIMIT];
+int notificationCount = 0;
 
 struct Button {
   int16_t x;
@@ -285,12 +290,27 @@ struct HubCommand {
   String title;
   String body;
   String text;
+  String subtitle;
+  String detail;
+  String style;
+  String icon;
+  String qrData;
+  String workflowName;
   String metricLabel;
   String metricValue;
+  String items[6];
+  int itemCount = 0;
+  int rgbR = -1;
+  int rgbG = -1;
+  int rgbB = -1;
 };
 
 void askAssistant(const String& text);
 bool askHubAssistant(const String& text);
+String commandBody(const HubCommand& command, const String& fallback = "");
+String commandTitle(const HubCommand& command, const String& fallback);
+void playChime(int kind);
+void runWorkflow(const String& text);
 void executeCommand(const HubCommand& command);
 
 static const uint16_t C_BG = ILI9341_BLACK;
@@ -386,6 +406,13 @@ String repeatedChar(char c, int count) {
   String out;
   for (int i = 0; i < count; i++) out += c;
   return out;
+}
+
+uint16_t rgb565(int r, int g, int b) {
+  r = constrain(r, 0, 255);
+  g = constrain(g, 0, 255);
+  b = constrain(b, 0, 255);
+  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
 String formatBytes(uint64_t bytes) {
@@ -505,10 +532,12 @@ void loadNetworkSettings() {
   wifiPassword = prefs.getString("wifiPass", WISP_WIFI_PASSWORD);
   hubBase = prefs.getString("hubBase", normalizedHubBase(WISP_HUB_URL));
   hubPort = prefs.getString("hubPort", portFromHubUrl(WISP_HUB_URL, ""));
+  defaultWorkflow = prefs.getString("workflow", WISP_DEFAULT_WORKFLOW);
   clampSetting(wifiSsid, 32);
   clampSetting(wifiPassword, 64);
   clampSetting(hubBase, 96);
   clampSetting(hubPort, 6);
+  clampSetting(defaultWorkflow, 80);
   updateHubUrl();
 }
 
@@ -1377,15 +1406,111 @@ void showCard(const String& title, const String& body, uint16_t accent = C_BLUE)
   drawTabs();
 }
 
-void drawDashboard(const String& title, const String& label, const String& value) {
-  drawHeader(title.length() ? title : "Workflow Monitor", C_GREEN);
+void drawDashboard(const String& title, const String& label, const String& value, const String* items = nullptr, int itemCount = 0, uint16_t accent = C_GREEN) {
+  drawHeader(title.length() ? title : "Workflow Monitor", accent);
   tft.fillRoundRect(18, 58, 284, 66, 12, C_PANEL);
   tft.setTextColor(C_MUTED, C_PANEL);
   tft.drawString(label.length() ? label : "Status", 32, 70, 2);
-  tft.setTextColor(C_GREEN, C_PANEL);
+  tft.setTextColor(accent, C_PANEL);
   tft.drawString(value.length() ? value : "Live", 32, 88, 4);
-  drawWrapped("Server online   Touch ready   Device paired", 22, 142, 36, 2, C_MUTED);
+  if (items && itemCount > 0) {
+    for (int i = 0; i < min(itemCount, 3); i++) {
+      int y = 136 + i * 18;
+      tft.fillRoundRect(20, y, 280, 16, 5, C_PANEL);
+      tft.fillCircle(30, y + 8, 3, accent);
+      tft.setTextColor(ILI9341_WHITE, C_PANEL);
+      tft.drawString(clipped(items[i], 31), 40, y + 2, 2);
+    }
+  } else {
+    drawWrapped("Server online   Touch ready   Device paired", 22, 142, 36, 2, C_MUTED);
+  }
   drawTabs();
+}
+
+void drawIconGrid(const String& title, const String* items, int itemCount, uint16_t accent) {
+  drawHeader(title.length() ? title : "NodeSpark Powers", accent);
+  const char* fallback[] = {"AI", "Hub", "Phone", "Flow", "Alert", "Done"};
+  for (int i = 0; i < 6; i++) {
+    int col = i % 3;
+    int row = i / 3;
+    int x = 14 + col * 102;
+    int y = 58 + row * 62;
+    String label = (items && i < itemCount && items[i].length()) ? items[i] : String(fallback[i]);
+    tft.fillRoundRect(x, y, 88, 48, 10, C_PANEL);
+    tft.drawRoundRect(x, y, 88, 48, 10, accent);
+    tft.fillCircle(x + 24, y + 24, 13, accent);
+    tft.setTextColor(readableTextColor(accent), accent);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString(label.substring(0, 1), x + 24, y + 24, 2);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(ILI9341_WHITE, C_PANEL);
+    tft.drawString(clipped(label, 8), x + 42, y + 18, 2);
+  }
+  drawTabs();
+}
+
+void pushNotification(const String& title, const String& body) {
+  if (notificationCount < NOTIFICATION_LIMIT) {
+    notificationCount++;
+  }
+  for (int i = notificationCount - 1; i > 0; i--) {
+    notificationTitles[i] = notificationTitles[i - 1];
+    notificationBodies[i] = notificationBodies[i - 1];
+  }
+  notificationTitles[0] = title;
+  notificationBodies[0] = body;
+}
+
+void drawNotificationStack(uint16_t accent) {
+  drawHeader("Notification Center", accent);
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString(String(notificationCount) + " saved on Wisp", 16, 52, 2);
+  for (int i = 0; i < notificationCount; i++) {
+    int y = 76 + i * 24;
+    tft.fillRoundRect(14, y, 292, 20, 6, C_PANEL);
+    tft.fillCircle(26, y + 10, 4, accent);
+    tft.setTextColor(ILI9341_WHITE, C_PANEL);
+    tft.drawString(clipped(notificationTitles[i], 15) + ": " + clipped(notificationBodies[i], 18), 38, y + 4, 2);
+  }
+  if (!notificationCount) drawWrapped("No notifications yet.", 18, 86, 32, 2, C_MUTED);
+  drawTabs();
+}
+
+void drawQrText(const String& title, const String& data, const String& subtitle, uint16_t accent) {
+  drawHeader(title.length() ? title : "NodeSpark QR", accent);
+  tft.fillRoundRect(16, 58, 98, 98, 10, ILI9341_WHITE);
+  for (int y = 0; y < 7; y++) {
+    for (int x = 0; x < 7; x++) {
+      bool on = (x == 0 || y == 0 || x == 6 || y == 6 || ((x * 3 + y * 5 + data.length()) % 4 == 0));
+      if (on) tft.fillRect(28 + x * 10, 70 + y * 10, 7, 7, ILI9341_BLACK);
+    }
+  }
+  tft.setTextColor(ILI9341_WHITE, C_BG);
+  drawWrapped(subtitle.length() ? subtitle : "Open this link from NodeSparkHub.", 132, 62, 20, 2, ILI9341_WHITE);
+  drawWrapped(data, 132, 106, 21, 4, C_MUTED);
+  drawTabs();
+}
+
+void drawHealthDashboard() {
+  String items[4];
+  items[0] = WiFi.isConnected() ? ("WiFi: " + WiFi.localIP().toString()) : "WiFi: offline";
+  items[1] = token.length() ? "Hub: paired" : "Hub: pair needed";
+  items[2] = "SD: " + clipped(lastSdStatus, 20);
+  items[3] = String("Audio: ") + (ampReady ? "amp " : "no amp ") + (micReady ? "mic" : "no mic");
+  drawDashboard("Device Health", "Reset", resetReasonName(esp_reset_reason()), items, 4, C_GREEN);
+}
+
+void runDemoSequence(const HubCommand& command) {
+  drawSplash(commandBody(command, "NodeSparkHub makes physical workflows feel alive."));
+  playChime(1);
+  delay(700);
+  showCard("Webhook Received", "Hub caught an event and routed it to this screen.", C_BLUE);
+  delay(750);
+  showCard("AI Thinking", "NodeSparkHub can summarize, decide, and act from the device.", C_PINK);
+  delay(750);
+  drawIconGrid("Real Hardware", command.items, command.itemCount, command.rgbR >= 0 ? rgb565(command.rgbR, command.rgbG, command.rgbB) : C_BLUE);
+  delay(750);
+  showCard(commandTitle(command, "Workflow Done"), commandBody(command, "Display, touch, commands, approvals, and Hub actions are live."), C_GREEN);
 }
 
 void writeAmpSilence(int durationMs = 160) {
@@ -1507,7 +1632,7 @@ void cycleAmpPins() {
   appendSdLog("amp_pin_mode", ampPinModeLabel());
 }
 
-String commandBody(const HubCommand& command, const String& fallback = "") {
+String commandBody(const HubCommand& command, const String& fallback) {
   if (command.body.length()) return command.body;
   if (command.text.length()) return command.text;
   return fallback;
@@ -1517,6 +1642,23 @@ String commandTitle(const HubCommand& command, const String& fallback) {
   return command.title.length() ? command.title : fallback;
 }
 
+String commandDetail(const HubCommand& command, const String& fallback = "") {
+  if (command.subtitle.length()) return command.subtitle;
+  if (command.detail.length()) return command.detail;
+  return fallback;
+}
+
+uint16_t commandAccent(const HubCommand& command, uint16_t fallback) {
+  if (command.rgbR >= 0 && command.rgbG >= 0 && command.rgbB >= 0) {
+    return rgb565(command.rgbR, command.rgbG, command.rgbB);
+  }
+  if (command.style == "success") return C_GREEN;
+  if (command.style == "warning" || command.style == "approval") return C_AMBER;
+  if (command.style == "error") return C_RED;
+  if (command.style == "ai" || command.style == "voice") return C_PINK;
+  return fallback;
+}
+
 void loadCommand(JsonObject source, HubCommand& command) {
   command.id = bounded(source["id"].as<String>(), 80);
   command.kind = bounded(source["type"].as<String>(), 32);
@@ -1524,8 +1666,44 @@ void loadCommand(JsonObject source, HubCommand& command) {
   command.title = bounded(source["title"].as<String>(), 60);
   command.body = bounded(source["body"].as<String>(), 260);
   command.text = bounded(source["text"].as<String>(), 260);
+  command.subtitle = bounded(source["subtitle"].as<String>(), 120);
+  command.detail = bounded(source["detail"].as<String>(), 160);
+  command.style = bounded(source["style"].as<String>(), 32);
+  command.style.toLowerCase();
+  command.icon = bounded(source["icon"].as<String>(), 32);
+  command.qrData = bounded(source["qrData"].as<String>(), 260);
+  command.workflowName = bounded(source["workflowName"].as<String>(), 80);
   command.metricLabel = bounded(source["metricLabel"].as<String>(), 48);
   command.metricValue = bounded(source["metricValue"].as<String>(), 48);
+  command.itemCount = 0;
+  command.rgbR = -1;
+  command.rgbG = -1;
+  command.rgbB = -1;
+  JsonArray rgb = source["rgb"].as<JsonArray>();
+  if (!rgb.isNull() && rgb.size() >= 3) {
+    command.rgbR = rgb[0].as<int>();
+    command.rgbG = rgb[1].as<int>();
+    command.rgbB = rgb[2].as<int>();
+  }
+  JsonArray items = source["items"].as<JsonArray>();
+  if (items.isNull() && source["payload"].is<JsonObject>()) {
+    items = source["payload"]["items"].as<JsonArray>();
+  }
+  if (!items.isNull()) {
+    for (JsonVariant item : items) {
+      if (command.itemCount >= 6) break;
+      String label;
+      if (item.is<JsonObject>()) {
+        label = item["label"].as<String>();
+        if (!label.length()) label = item["title"].as<String>();
+        if (!label.length()) label = item["name"].as<String>();
+      } else {
+        label = item.as<String>();
+      }
+      label.trim();
+      if (label.length()) command.items[command.itemCount++] = bounded(label, 48);
+    }
+  }
 }
 
 void executeCommand(const HubCommand& command) {
@@ -1536,7 +1714,7 @@ void executeCommand(const HubCommand& command) {
   if (kind == "display" || kind == "message" || kind == "show") {
     String title = commandTitle(command, "NodeSparkHub");
     String body = commandBody(command);
-    showCard(title, body, C_BLUE);
+    showCard(title, body, commandAccent(command, C_BLUE));
     lastCommand = title + ": " + body;
     playChime(0);
     ackCommand(id, "completed", "displayed");
@@ -1545,18 +1723,56 @@ void executeCommand(const HubCommand& command) {
     askAssistant(text);
     lastCommand = "Assistant: " + text;
     ackCommand(id, "completed", "assistant requested");
-  } else if (kind == "card" || kind == "demo" || kind == "showcase" || kind == "alert" || kind == "ai") {
+  } else if (kind == "runworkflow" || kind == "run" || kind == "workflow") {
+    String previousWorkflow = defaultWorkflow;
+    if (command.workflowName.length()) defaultWorkflow = command.workflowName;
+    String body = commandBody(command, "ESP32-S3 Wisp command requested a workflow.");
+    runWorkflow(body);
+    if (command.workflowName.length()) defaultWorkflow = previousWorkflow;
+    lastCommand = "Workflow: " + (command.workflowName.length() ? command.workflowName : previousWorkflow);
+    ackCommand(id, "completed", "workflow requested");
+  } else if (kind == "selectworkflow" || kind == "select") {
+    if (command.workflowName.length()) {
+      defaultWorkflow = command.workflowName;
+      clampSetting(defaultWorkflow, 80);
+      prefs.putString("workflow", defaultWorkflow);
+    }
+    showCard("Workflow Selected", defaultWorkflow.length() ? defaultWorkflow : "Wisp Assistant", C_GREEN);
+    lastCommand = "Selected workflow: " + defaultWorkflow;
+    ackCommand(id, "completed", defaultWorkflow);
+  } else if (kind == "card" || kind == "alert" || kind == "success" || kind == "warning" || kind == "error" || kind == "ai" || kind == "voice" || kind == "timer" || kind == "weather" || kind == "statuscard" || kind == "promo") {
     String title = commandTitle(command, "NodeSparkHub Card");
     String body = commandBody(command);
-    showCard(title, body, C_PINK);
+    String detail = commandDetail(command);
+    if (detail.length()) body = detail + "\n" + body;
+    showCard(title, body, commandAccent(command, C_PINK));
     lastCommand = "Card: " + title;
     playChime(0);
     ackCommand(id, "completed", "card shown");
-  } else if (kind == "dashboard" || kind == "metrics") {
-    drawDashboard(commandTitle(command, "Workflow Monitor"), command.metricLabel.length() ? command.metricLabel : "Hub", command.metricValue.length() ? command.metricValue : "Live");
+  } else if (kind == "demo" || kind == "showcase" || kind == "salesdemo") {
+    runDemoSequence(command);
+    lastCommand = "Demo played";
+    ackCommand(id, "completed", "demo played");
+  } else if (kind == "graphic" || kind == "graphics" || kind == "icons" || kind == "icongrid") {
+    drawIconGrid(commandTitle(command, "NodeSpark Powers"), command.items, command.itemCount, commandAccent(command, C_BLUE));
+    lastCommand = "Graphics shown";
+    playChime(0);
+    ackCommand(id, "completed", "graphics shown");
+  } else if (kind == "dashboard" || kind == "metrics" || kind == "monitor") {
+    drawDashboard(commandTitle(command, "Workflow Monitor"), command.metricLabel.length() ? command.metricLabel : "Hub", command.metricValue.length() ? command.metricValue : "Live", command.items, command.itemCount, commandAccent(command, C_GREEN));
     lastCommand = "Dashboard shown";
     playChime(0);
     ackCommand(id, "completed", "dashboard shown");
+  } else if (kind == "health" || kind == "status" || kind == "devicehealth") {
+    drawHealthDashboard();
+    lastCommand = "Health shown";
+    ackCommand(id, "completed", "health shown");
+  } else if (kind == "notify" || kind == "notification" || kind == "inbox") {
+    pushNotification(commandTitle(command, "NodeSparkHub"), commandBody(command, "New Hub notification."));
+    drawNotificationStack(commandAccent(command, C_BLUE));
+    lastCommand = "Notification saved";
+    playChime(0);
+    ackCommand(id, "completed", String(notificationCount) + " notifications saved");
   } else if (kind == "approval" || kind == "approve" || kind == "decision") {
     pendingApprovalId = id;
     pendingApprovalTitle = commandTitle(command, "Approval Needed");
@@ -1569,6 +1785,19 @@ void executeCommand(const HubCommand& command) {
     showCard("Speaking", text, C_PINK);
     playChime(0);
     ackCommand(id, "completed", "chime played; TTS pending");
+  } else if (kind == "led" || kind == "rgb" || kind == "setled") {
+    uint16_t accent = commandAccent(command, C_BLUE);
+    showCard("LED Color", "ESP32 Wisp used the requested color as its screen accent.", accent);
+    playChime(0);
+    ackCommand(id, "completed", "accent color applied");
+  } else if (kind == "splash" || kind == "logo" || kind == "startup") {
+    drawSplash(commandBody(command, "NodeSparkHub physical node"));
+    playChime(1);
+    ackCommand(id, "completed", "startup logo");
+  } else if (kind == "qr" || kind == "pairingqr") {
+    String data = command.qrData.length() ? command.qrData : commandBody(command, hubBase.length() ? hubBase : "nodesparkhub-device://pair");
+    drawQrText(commandTitle(command, "NodeSpark QR"), data, commandDetail(command, "Scan or copy this link"), commandAccent(command, C_BLUE));
+    ackCommand(id, "completed", "qr shown");
   } else if (kind == "ping") {
     showCard("Ping", "NodeSparkHub is talking to this ESP32-S3 Wisp.", C_GREEN);
     playChime(0);
