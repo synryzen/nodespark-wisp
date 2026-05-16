@@ -165,6 +165,14 @@ static const uint16_t C_AMBER = 0xFD20;
 static const uint16_t C_RED = 0xF9A6;
 static const uint16_t C_MUTED = 0x9CF3;
 
+uint16_t readableTextColor(uint16_t bg) {
+  uint8_t r = ((bg >> 11) & 0x1F) << 3;
+  uint8_t g = ((bg >> 5) & 0x3F) << 2;
+  uint8_t b = (bg & 0x1F) << 3;
+  uint16_t luminance = (uint16_t)r * 30 + (uint16_t)g * 59 + (uint16_t)b * 11;
+  return luminance > 13000 ? ILI9341_BLACK : ILI9341_WHITE;
+}
+
 String macId() {
   uint64_t mac = ESP.getEfuseMac();
   char buf[24];
@@ -252,7 +260,7 @@ void drawButton(const Button& b) {
   tft.fillRoundRect(b.x, b.y, b.w, b.h, 8, b.color);
   tft.drawRoundRect(b.x, b.y, b.w, b.h, 8, ILI9341_WHITE);
   tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(ILI9341_BLACK, b.color);
+  tft.setTextColor(readableTextColor(b.color), b.color);
   tft.drawString(b.label, b.x + b.w / 2, b.y + b.h / 2, 2);
   tft.setTextDatum(TL_DATUM);
 }
