@@ -240,8 +240,21 @@ String repeatedChar(char c, int count) {
   return out;
 }
 
+String clipped(String value, int maxLen) {
+  value.trim();
+  if ((int)value.length() <= maxLen) return value;
+  if (maxLen <= 1) return value.substring(0, maxLen);
+  return value.substring(0, maxLen - 1) + "~";
+}
+
+void clampSetting(String& value, int maxLen) {
+  value.trim();
+  if ((int)value.length() > maxLen) value = value.substring(0, maxLen);
+}
+
 String normalizedHubBase(String input) {
   input.trim();
+  if ((int)input.length() > 96) input = input.substring(0, 96);
   if (!input.startsWith("http://") && !input.startsWith("https://")) input = "http://" + input;
   while (input.endsWith("/")) input.remove(input.length() - 1);
   int schemeEnd = input.indexOf("://");
@@ -267,6 +280,7 @@ String portFromHubUrl(String input, const String& fallback) {
 void updateHubUrl() {
   hubBase = normalizedHubBase(hubBase.length() ? hubBase : WISP_HUB_URL);
   hubPort.trim();
+  clampSetting(hubPort, 6);
   hubUrl = hubBase;
   if (hubPort.length()) hubUrl += ":" + hubPort;
 }
@@ -276,10 +290,18 @@ void loadNetworkSettings() {
   wifiPassword = prefs.getString("wifiPass", WISP_WIFI_PASSWORD);
   hubBase = prefs.getString("hubBase", normalizedHubBase(WISP_HUB_URL));
   hubPort = prefs.getString("hubPort", portFromHubUrl(WISP_HUB_URL, ""));
+  clampSetting(wifiSsid, 32);
+  clampSetting(wifiPassword, 64);
+  clampSetting(hubBase, 96);
+  clampSetting(hubPort, 6);
   updateHubUrl();
 }
 
 void saveNetworkSettings() {
+  clampSetting(wifiSsid, 32);
+  clampSetting(wifiPassword, 64);
+  clampSetting(hubBase, 96);
+  clampSetting(hubPort, 6);
   updateHubUrl();
   prefs.putString("wifiSsid", wifiSsid);
   prefs.putString("wifiPass", wifiPassword);
@@ -475,6 +497,7 @@ String inputTitle() {
 }
 
 void drawSettingsMain() {
+  Serial.println("[ui] draw setup");
   drawHeader("Wisp Setup", C_AMBER);
   drawButton({8, 48, 72, 28, "Scan", C_BLUE});
   drawButton({86, 48, 72, 28, "Def", C_PANEL});
@@ -485,7 +508,7 @@ void drawSettingsMain() {
   tft.drawString("SSID", 14, 86, 2);
   tft.fillRoundRect(74, 82, 232, 24, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  tft.drawString(wifiSsid.length() ? wifiSsid : "tap or scan", 82, 88, 2);
+  tft.drawString(wifiSsid.length() ? clipped(wifiSsid, 24) : "tap or scan", 82, 88, 2);
 
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString("Pass", 14, 114, 2);
@@ -497,15 +520,15 @@ void drawSettingsMain() {
   tft.drawString("URL", 14, 142, 2);
   tft.fillRoundRect(74, 138, 232, 24, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  drawWrapped(hubBase, 82, 144, 27, 1, ILI9341_WHITE);
+  tft.drawString(clipped(hubBase, 25), 82, 144, 2);
 
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString("Port", 14, 170, 2);
   tft.fillRoundRect(74, 166, 90, 22, 6, C_PANEL);
   tft.setTextColor(ILI9341_WHITE, C_PANEL);
-  tft.drawString(hubPort.length() ? hubPort : "none", 82, 172, 2);
+  tft.drawString(hubPort.length() ? clipped(hubPort, 6) : "none", 82, 172, 2);
   tft.setTextColor(WiFi.isConnected() ? C_GREEN : C_AMBER, C_BG);
-  drawWrapped(lastStatus, 174, 166, 16, 2, WiFi.isConnected() ? C_GREEN : C_AMBER);
+  tft.drawString(clipped(lastStatus, 16), 174, 166, 2);
   drawTabs();
 }
 
