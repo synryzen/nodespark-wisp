@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <SPI.h>
+#include <SD.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <XPT2046_Touchscreen.h>
@@ -221,6 +222,7 @@ int keyboardPage = 0;
 int audioVolumePercent = 90;
 int lastMicLevel = 0;
 int lastMicBytes = 0;
+String lastSdStatus = "SD not checked";
 
 uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
@@ -354,6 +356,13 @@ String repeatedChar(char c, int count) {
   String out;
   for (int i = 0; i < count; i++) out += c;
   return out;
+}
+
+String formatBytes(uint64_t bytes) {
+  if (bytes >= 1024ULL * 1024ULL * 1024ULL) return String((double)bytes / (1024.0 * 1024.0 * 1024.0), 1) + " GB";
+  if (bytes >= 1024ULL * 1024ULL) return String((double)bytes / (1024.0 * 1024.0), 1) + " MB";
+  if (bytes >= 1024ULL) return String((double)bytes / 1024.0, 1) + " KB";
+  return String((unsigned long)bytes) + " B";
 }
 
 String clipped(String value, int maxLen) {
@@ -657,10 +666,11 @@ String inputTitle() {
 void drawSettingsMain() {
   Serial.println("[ui] draw setup");
   drawHeader("Wisp Setup", C_AMBER);
-  drawButton({8, 48, 72, 28, "Scan", C_BLUE});
-  drawButton({86, 48, 72, 28, "Def", C_PANEL});
-  drawButton({164, 48, 72, 28, "Conn", C_GREEN});
-  drawButton({242, 48, 70, 28, "Save", C_PINK});
+  drawButton({6, 48, 58, 28, "Scan", C_BLUE});
+  drawButton({68, 48, 58, 28, "Def", C_PANEL});
+  drawButton({130, 48, 58, 28, "Conn", C_GREEN});
+  drawButton({192, 48, 58, 28, "Save", C_PINK});
+  drawButton({254, 48, 58, 28, "SD", C_AMBER});
 
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString("SSID", 14, 86, 2);
@@ -687,6 +697,8 @@ void drawSettingsMain() {
   tft.drawString(hubPort.length() ? clipped(hubPort, 6) : "none", 82, 172, 2);
   tft.setTextColor(WiFi.isConnected() ? C_GREEN : C_AMBER, C_BG);
   tft.drawString(clipped(lastStatus, 16), 174, 166, 2);
+  tft.setTextColor(lastSdStatus.startsWith("SD OK") ? C_GREEN : C_MUTED, C_BG);
+  tft.drawString(clipped(lastSdStatus, 28), 174, 184, 2);
   drawTabs();
 }
 
@@ -965,6 +977,71 @@ void actionSaveSettings() {
   drawSettingsMain();
 }
 
+void actionCheckSdCard() {
+#if !WISP_ENABLE_SD
+  lastSdStatus = "SD disabled";
+  drawHeader("SD Card Check", C_AMBER);
+  drawWrapped("SD support is disabled in this firmware build.", 18, 70, 34, 3, ILI9341_WHITE);
+  drawTabs();
+  return;
+#else
+  Serial.println("[sd] checking card");
+  digitalWrite(PIN_TFT_CS, HIGH);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  digitalWrite(PIN_SD_CS, HIGH);
+  delay(20);
+
+  bool mounted = SD.begin(PIN_SD_CS, SPI, 4000000);
+  if (!mounted) {
+    lastSdStatus = "SD mount failed";
+    Serial.println("[sd] mount failed");
+    drawHeader("SD Card Check", C_RED);
+    drawWrapped("No SD card found. Check 3V3/5V, GND, MISO, MOSI, SCK, and CS GPIO14.", 18, 62, 34, 4, ILI9341_WHITE);
+    drawTabs();
+    digitalWrite(PIN_SD_CS, HIGH);
+    return;
+  }
+
+  uint8_t type = SD.cardType();
+  uint64_t size = SD.cardSize();
+  const char* testPath = "/nodespark_wisp_test.txt";
+  bool writeOk = false;
+  bool readOk = false;
+
+  File file = SD.open(testPath, FILE_WRITE);
+  if (file) {
+    writeOk = file.println("NodeSpark Wisp SD OK") > 0;
+    file.close();
+  }
+  file = SD.open(testPath, FILE_READ);
+  if (file) {
+    String content = file.readStringUntil('\n');
+    content.trim();
+    readOk = content == "NodeSpark Wisp SD OK";
+    file.close();
+  }
+
+  String typeName = "Unknown";
+  if (type == CARD_MMC) typeName = "MMC";
+  else if (type == CARD_SD) typeName = "SDSC";
+  else if (type == CARD_SDHC) typeName = "SDHC";
+  else if (type == CARD_NONE) typeName = "None";
+
+  bool ok = type != CARD_NONE && writeOk && readOk;
+  lastSdStatus = ok ? "SD OK " + formatBytes(size) : "SD test failed";
+  Serial.printf("[sd] type=%s size=%s write=%s read=%s\n", typeName.c_str(), formatBytes(size).c_str(), writeOk ? "ok" : "fail", readOk ? "ok" : "fail");
+
+  drawHeader("SD Card Check", ok ? C_GREEN : C_RED);
+  String body = ok
+    ? "SD card ready. Type " + typeName + ", size " + formatBytes(size) + ". Write/read test passed."
+    : "SD mounted, but write/read test failed. Check card format, module power, and CS GPIO14.";
+  drawWrapped(body, 18, 62, 34, 5, ILI9341_WHITE);
+  drawTabs();
+  SD.end();
+  digitalWrite(PIN_SD_CS, HIGH);
+#endif
+}
+
 void handleSetupTouch(int x, int y) {
   if (setupView == SETUP_INPUT) {
     handleKeyboardTouch(x, y);
@@ -991,14 +1068,16 @@ void handleSetupTouch(int x, int y) {
     return;
   }
 
-  if (inBox(x, y, {4, 44, 78, 38, "", C_BLUE})) runGuardedAction("Scanning...", actionScanWifi);
-  else if (inBox(x, y, {82, 44, 78, 38, "", C_PANEL})) {
+  if (inBox(x, y, {6, 44, 60, 38, "", C_BLUE})) runGuardedAction("Scanning...", actionScanWifi);
+  else if (inBox(x, y, {66, 44, 62, 38, "", C_PANEL})) {
     runGuardedAction("Defaults...", actionLoadDefaults);
-  } else if (inBox(x, y, {160, 44, 78, 38, "", C_GREEN})) {
+  } else if (inBox(x, y, {128, 44, 62, 38, "", C_GREEN})) {
     runGuardedAction("Connecting...", actionConnectWifi);
   }
-  else if (inBox(x, y, {238, 44, 78, 38, "", C_PINK})) {
+  else if (inBox(x, y, {190, 44, 62, 38, "", C_PINK})) {
     runGuardedAction("Saving...", actionSaveSettings);
+  } else if (inBox(x, y, {252, 44, 62, 38, "", C_AMBER})) {
+    runGuardedAction("SD Check...", actionCheckSdCard);
   } else if (inBox(x, y, {70, 78, 240, 30, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
   else if (inBox(x, y, {70, 106, 240, 30, "", C_PANEL})) beginInput(INPUT_WIFI_PASSWORD, wifiPassword);
   else if (inBox(x, y, {70, 134, 240, 30, "", C_PANEL})) beginInput(INPUT_HUB_BASE, hubBase);
