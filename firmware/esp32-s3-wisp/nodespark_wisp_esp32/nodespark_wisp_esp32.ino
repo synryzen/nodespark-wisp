@@ -1,12 +1,14 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <SPI.h>
-#include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <XPT2046_Touchscreen.h>
 #include "driver/i2s.h"
+#include "mascot_logo.h"
 
 #if __has_include("config.h")
 #include "config.h"
@@ -23,6 +25,9 @@
 #endif
 
 // ESP32-S3 DevKit pin plan. Change here if your board labels differ.
+static constexpr int PIN_TFT_CS = 10;
+static constexpr int PIN_TFT_DC = 9;
+static constexpr int PIN_TFT_RST = -1;
 static constexpr int PIN_SPI_MOSI = 11;
 static constexpr int PIN_SPI_MISO = 13;
 static constexpr int PIN_SPI_SCK = 12;
@@ -41,7 +46,69 @@ static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr const char* APP_VERSION = "nodespark-wisp-esp32/0.1.0";
 
-TFT_eSPI tft;
+static constexpr int TL_DATUM = 0;
+static constexpr int ML_DATUM = 1;
+static constexpr int MR_DATUM = 2;
+static constexpr int MC_DATUM = 3;
+
+class WispTft {
+public:
+  Adafruit_ILI9341 display;
+  int datum = TL_DATUM;
+  uint16_t textColor = ILI9341_WHITE;
+
+  WispTft() : display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST) {}
+
+  void init() {
+    pinMode(PIN_TFT_CS, OUTPUT);
+    pinMode(PIN_TOUCH_CS, OUTPUT);
+    digitalWrite(PIN_TFT_CS, HIGH);
+    digitalWrite(PIN_TOUCH_CS, HIGH);
+    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_TFT_CS);
+    display.begin(8000000);
+    digitalWrite(PIN_TFT_CS, HIGH);
+  }
+
+  void guardDisplay() { digitalWrite(PIN_TOUCH_CS, HIGH); }
+  void setRotation(uint8_t rotation) { guardDisplay(); display.setRotation(rotation); }
+  void fillScreen(uint16_t color) { guardDisplay(); display.fillScreen(color); }
+  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { guardDisplay(); display.fillRect(x, y, w, h, color); }
+  void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { guardDisplay(); display.drawRect(x, y, w, h, color); }
+  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) { guardDisplay(); display.drawFastVLine(x, y, h, color); }
+  void fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) { guardDisplay(); display.fillRoundRect(x, y, w, h, r, color); }
+  void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) { guardDisplay(); display.drawRoundRect(x, y, w, h, r, color); }
+  void drawRGBBitmap(int16_t x, int16_t y, const uint16_t* bitmap, int16_t w, int16_t h) { guardDisplay(); display.drawRGBBitmap(x, y, bitmap, w, h); }
+  void setTextColor(uint16_t color, uint16_t bg = ILI9341_BLACK) {
+    guardDisplay();
+    textColor = color;
+    display.setTextColor(color, bg);
+  }
+  void setTextDatum(int value) { datum = value; }
+  void drawString(const String& text, int16_t x, int16_t y, uint8_t font = 2) {
+    guardDisplay();
+    uint8_t size = font >= 4 ? 2 : 1;
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.setTextSize(size);
+    display.setTextColor(textColor);
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    int16_t dx = x;
+    int16_t dy = y;
+    if (datum == MC_DATUM) {
+      dx = x - w / 2;
+      dy = y - h / 2;
+    } else if (datum == ML_DATUM) {
+      dy = y - h / 2;
+    } else if (datum == MR_DATUM) {
+      dx = x - w;
+      dy = y - h / 2;
+    }
+    display.setCursor(dx, dy);
+    display.print(text);
+  }
+};
+
+WispTft tft;
 XPT2046_Touchscreen touch(PIN_TOUCH_CS, PIN_TOUCH_IRQ);
 Preferences prefs;
 
@@ -75,7 +142,7 @@ struct Button {
   uint16_t color;
 };
 
-static const uint16_t C_BG = TFT_BLACK;
+static const uint16_t C_BG = ILI9341_BLACK;
 static const uint16_t C_PANEL = 0x1084;
 static const uint16_t C_BLUE = 0x05FF;
 static const uint16_t C_PINK = 0xF81F;
@@ -105,7 +172,7 @@ String jsonEscape(const String& value) {
 void drawHeader(const String& title, uint16_t accent = C_BLUE) {
   tft.fillScreen(C_BG);
   tft.fillRoundRect(6, 6, SCREEN_W - 12, 36, 8, accent);
-  tft.setTextColor(TFT_BLACK, accent);
+  tft.setTextColor(ILI9341_BLACK, accent);
   tft.setTextDatum(ML_DATUM);
   tft.drawString(title, 16, 24, 4);
   tft.setTextDatum(MR_DATUM);
@@ -115,9 +182,9 @@ void drawHeader(const String& title, uint16_t accent = C_BLUE) {
 
 void drawButton(const Button& b) {
   tft.fillRoundRect(b.x, b.y, b.w, b.h, 8, b.color);
-  tft.drawRoundRect(b.x, b.y, b.w, b.h, 8, TFT_WHITE);
+  tft.drawRoundRect(b.x, b.y, b.w, b.h, 8, ILI9341_WHITE);
   tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(TFT_BLACK, b.color);
+  tft.setTextColor(ILI9341_BLACK, b.color);
   tft.drawString(b.label, b.x + b.w / 2, b.y + b.h / 2, 2);
   tft.setTextDatum(TL_DATUM);
 }
@@ -133,7 +200,7 @@ void drawTabs() {
   for (auto& tab : tabs) drawButton(tab);
 }
 
-void drawWrapped(const String& text, int x, int y, int maxChars, int maxLines, uint16_t color = TFT_WHITE) {
+void drawWrapped(const String& text, int x, int y, int maxChars, int maxLines, uint16_t color = ILI9341_WHITE) {
   tft.setTextColor(color, C_BG);
   int line = 0;
   int start = 0;
@@ -153,9 +220,33 @@ void drawWrapped(const String& text, int x, int y, int maxChars, int maxLines, u
   }
 }
 
+void drawSplash(const String& status) {
+  tft.fillScreen(C_BG);
+  for (int y = 0; y < SCREEN_H; y += 6) {
+    uint8_t blue = 18 + min(42, y / 4);
+    uint16_t color = ((0 & 0xF8) << 8) | ((8 & 0xFC) << 3) | (blue >> 3);
+    tft.fillRect(0, y, SCREEN_W, 6, color);
+  }
+  tft.fillRoundRect(12, 12, SCREEN_W - 24, SCREEN_H - 24, 18, 0x0863);
+  tft.drawRoundRect(12, 12, SCREEN_W - 24, SCREEN_H - 24, 18, C_BLUE);
+  tft.drawRGBBitmap(24, 44, WISP_MASCOT, WISP_MASCOT_W, WISP_MASCOT_H);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(ILI9341_WHITE, 0x0863);
+  tft.drawString("NodeSpark", 160, 54, 4);
+  tft.setTextColor(C_BLUE, 0x0863);
+  tft.drawString("Wisp Touch", 160, 82, 4);
+  tft.setTextColor(C_MUTED, 0x0863);
+  drawWrapped(status, 160, 122, 20, 3, C_MUTED);
+  tft.fillRoundRect(160, 184, 126, 24, 8, C_PANEL);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_PINK, C_PANEL);
+  tft.drawString("NodeSparkHub", 223, 196, 2);
+  tft.setTextDatum(TL_DATUM);
+}
+
 void drawStatus() {
   drawHeader("NodeSpark Wisp ESP32", C_BLUE);
-  tft.setTextColor(TFT_WHITE, C_BG);
+  tft.setTextColor(ILI9341_WHITE, C_BG);
   tft.drawString("Device", 14, 56, 2);
   tft.drawString(deviceId, 86, 56, 2);
   tft.drawString("Hub", 14, 78, 2);
@@ -170,7 +261,7 @@ void drawStatus() {
 
 void drawPair() {
   drawHeader("Pair With NodeSparkHub", C_PINK);
-  tft.setTextColor(TFT_WHITE, C_BG);
+  tft.setTextColor(ILI9341_WHITE, C_BG);
   tft.drawString("Enter Hub pairing code:", 14, 52, 2);
   tft.fillRoundRect(14, 75, 140, 32, 8, C_PANEL);
   tft.setTextDatum(MC_DATUM);
@@ -196,11 +287,11 @@ void drawCommands() {
   if (pendingApprovalId.length()) {
     tft.setTextColor(C_AMBER, C_BG);
     tft.drawString("Approval needed", 14, 52, 4);
-    drawWrapped(pendingApprovalTitle + ": " + pendingApprovalBody, 14, 84, 35, 3, TFT_WHITE);
+    drawWrapped(pendingApprovalTitle + ": " + pendingApprovalBody, 14, 84, 35, 3, ILI9341_WHITE);
     drawButton({24, 150, 120, 36, "Approve", C_GREEN});
     drawButton({176, 150, 120, 36, "Reject", C_RED});
   } else {
-    tft.setTextColor(TFT_WHITE, C_BG);
+    tft.setTextColor(ILI9341_WHITE, C_BG);
     tft.drawString("Last command", 14, 56, 2);
     drawWrapped(lastCommand, 14, 84, 36, 5, C_MUTED);
   }
@@ -219,7 +310,7 @@ void drawDemo() {
 
 void drawMic() {
   drawHeader("INMP441 Mic", C_PINK);
-  tft.setTextColor(TFT_WHITE, C_BG);
+  tft.setTextColor(ILI9341_WHITE, C_BG);
   tft.drawString("Live level", 16, 58, 4);
   drawButton({20, 150, 128, 38, "Sample", C_BLUE});
   drawButton({172, 150, 128, 38, "Voice Run", C_AMBER});
@@ -236,8 +327,17 @@ void redraw() {
 }
 
 bool touched(int& x, int& y) {
-  if (!touch.touched()) return false;
+  digitalWrite(PIN_TFT_CS, HIGH);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  delayMicroseconds(8);
+  if (!touch.touched()) {
+    digitalWrite(PIN_TOUCH_CS, HIGH);
+    digitalWrite(PIN_TFT_CS, HIGH);
+    return false;
+  }
   TS_Point p = touch.getPoint();
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  digitalWrite(PIN_TFT_CS, HIGH);
   x = map(p.x, WISP_TOUCH_MIN_X, WISP_TOUCH_MAX_X, 0, SCREEN_W);
   y = map(p.y, WISP_TOUCH_MIN_Y, WISP_TOUCH_MAX_Y, 0, SCREEN_H);
   x = constrain(x, 0, SCREEN_W - 1);
@@ -319,7 +419,7 @@ void showCard(const String& title, const String& body, uint16_t accent = C_BLUE)
   drawHeader(title.length() ? title : "NodeSparkHub", accent);
   tft.fillRoundRect(16, 58, SCREEN_W - 32, 118, 12, C_PANEL);
   tft.drawRoundRect(16, 58, SCREEN_W - 32, 118, 12, accent);
-  drawWrapped(body, 28, 78, 34, 5, TFT_WHITE);
+  drawWrapped(body, 28, 78, 34, 5, ILI9341_WHITE);
   drawTabs();
 }
 
@@ -530,41 +630,45 @@ void setupAudio() {
 }
 
 void setupWifi() {
+  Serial.printf("[wifi] connecting to %s\n", WISP_WIFI_SSID);
   WiFi.mode(WIFI_STA);
   WiFi.begin(WISP_WIFI_SSID, WISP_WIFI_PASSWORD);
   lastStatus = "Connecting Wi-Fi...";
-  redraw();
+  drawSplash(lastStatus);
   uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     delay(250);
   }
   lastStatus = WiFi.isConnected() ? "Wi-Fi " + WiFi.localIP().toString() : "Wi-Fi failed. Check config.h.";
+  Serial.printf("[wifi] %s\n", lastStatus.c_str());
 }
 
 void setup() {
   Serial.begin(115200);
   delay(200);
+  Serial.println();
+  Serial.println("[boot] NodeSpark Wisp ESP32-S3 starting");
   deviceId = macId();
+  Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   prefs.begin("wisp", false);
   token = prefs.getString("token", "");
 
+  Serial.println("[display] init");
   tft.init();
   tft.setRotation(1);
-  tft.fillScreen(C_BG);
-  SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+  drawSplash("Starting physical workflows");
+  Serial.println("[display] splash complete");
   touch.begin(SPI);
   touch.setRotation(1);
-
-  drawHeader("NodeSpark Wisp", C_BLUE);
-  tft.setTextColor(TFT_WHITE, C_BG);
-  tft.drawString("ESP32-S3 touch build", 18, 70, 4);
-  drawWrapped("Display, touch, Wi-Fi, Hub commands, I2S speaker, and INMP441 mic.", 18, 112, 36, 3, C_MUTED);
-  delay(900);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  delay(1100);
 
   setupAudio();
+  Serial.printf("[audio] amp=%s mic=%s\n", ampReady ? "ready" : "off", micReady ? "ready" : "off");
   setupWifi();
   redraw();
   playChime(0);
+  Serial.println("[boot] ready");
 }
 
 void loop() {

@@ -90,15 +90,15 @@ flowchart LR
 
 | Display Pin | ESP32-S3 Pin | Notes |
 | --- | ---: | --- |
-| VCC | 3V3 | Start with 3.3V power |
+| VCC | 3V3 first, 5V if USB drops | Many 2.8-inch PCB modules have a regulator and may need 5V for stable backlight power |
 | GND | GND | Shared ground |
 | CS / TFT_CS | GPIO10 | TFT chip select |
-| RESET / RST | GPIO8 | TFT reset |
+| RESET / RST | 3V3 | Keep reset high during first bring-up |
 | DC / RS | GPIO9 | TFT data/command |
 | SDI / MOSI | GPIO11 | Shared SPI MOSI |
 | SCK / CLK | GPIO12 | Shared SPI clock |
 | SDO / MISO | GPIO13 | Shared SPI MISO |
-| LED / BL | 3V3 | Backlight always on |
+| LED / BL | leave disconnected for first boot, then 3V3 | If the board disappears from USB, BL current is too high for the ESP32 3V3 rail |
 
 ### XPT2046 Touch Pins
 
@@ -136,13 +136,28 @@ flowchart LR
 ## Bench Checklist
 
 1. Wire all GND pins together first.
-2. Wire the TFT and touch SPI bus: `GPIO11`, `GPIO12`, `GPIO13`.
-3. Give the TFT and touch separate chip selects: TFT `GPIO10`, touch `GPIO7`.
-4. Wire the MAX98357 and speaker.
-5. Wire the INMP441 microphone.
-6. Power from USB-C.
+2. For first display boot, wire only the TFT display pins, not touch/audio/mic.
+3. Leave `LED/BL` disconnected for the first boot test. The screen will be dim,
+   but it should no longer be able to brown out the ESP32 3.3V rail.
+4. Wire the TFT SPI bus: `GPIO11`, `GPIO12`, `GPIO13`.
+5. Wire TFT control pins: `GPIO10`, `GPIO9`, and tie `RESET/RST` to `3V3`.
+6. Power from USB-C and confirm the ESP32 still appears as `/dev/cu.usbmodem...`.
 7. Upload the firmware.
-8. Open the Wisp `Pair` tab and pair with NodeSparkHub.
+8. If the display initializes, connect `LED/BL` to `3V3`.
+9. Add touch pins, then audio, then mic.
+10. Open the Wisp `Pair` tab and pair with NodeSparkHub.
+
+## If The ESP32 Disappears When The Display Is Plugged In
+
+This means the display module is interfering electrically before firmware has a
+chance to run. Try this order:
+
+1. Disconnect `LED/BL`.
+2. Keep `GND` shared.
+3. If the board still disappears, move TFT `VCC` from `3V3` to `5V` only if your
+   module is marked `5V/3.3V` or has an onboard regulator.
+4. Do not connect touch, amp, or mic until the TFT alone boots.
+5. Do not use ESP32-S3 `GPIO19` or `GPIO20`; those are USB pins on many boards.
 
 ## Safety Notes
 
@@ -152,4 +167,3 @@ flowchart LR
   and control signals on ESP32 3.3V logic.
 - The speaker connects only to the MAX98357 speaker output, never directly to
   the ESP32-S3.
-

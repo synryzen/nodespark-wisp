@@ -43,7 +43,7 @@ The display and touch controller share SPI clock, MOSI, and MISO.
 | VCC | 3V3 | Use 3.3V unless your module explicitly needs 5V power |
 | GND | GND | Common ground |
 | CS / TFT_CS | GPIO10 | Display chip select |
-| RESET / RST | GPIO8 | Display reset |
+| RESET / RST | 3V3 | Keep reset high during first bring-up |
 | DC / RS | GPIO9 | Display data/command |
 | SDI / MOSI | GPIO11 | SPI MOSI |
 | SCK / CLK | GPIO12 | SPI clock |

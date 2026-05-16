@@ -9,7 +9,9 @@
 #define TFT_SCLK 12
 #define TFT_CS   10
 #define TFT_DC   9
-#define TFT_RST  8
+// Tie the display RESET/RST pin to 3V3 for the first hardware bring-up. This
+// avoids boot-sensitive GPIO/reset timing problems on mixed ESP32-S3 TFT modules.
+#define TFT_RST  -1
 
 #define LOAD_GLCD
 #define LOAD_FONT2
@@ -20,7 +22,8 @@
 #define LOAD_GFXFF
 #define SMOOTH_FONT
 
-#define SPI_FREQUENCY       40000000
-#define SPI_READ_FREQUENCY  16000000
+// Keep this conservative for jumper-wire prototypes. Raise later after the
+// display is confirmed stable.
+#define SPI_FREQUENCY       10000000
+#define SPI_READ_FREQUENCY  8000000
 #define SPI_TOUCH_FREQUENCY 2500000
-
