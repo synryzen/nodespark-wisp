@@ -27,7 +27,7 @@
 // Hardware bring-up stability defaults. Connect manually from Set > Conn after
 // the display/touch wiring is stable.
 #define WISP_TFT_RST_PIN 8
-#define WISP_CONNECT_ON_BOOT 0
+#define WISP_CONNECT_ON_BOOT 1
 #define WISP_ENABLE_BACKGROUND_HUB_POLL 0
 #define WISP_ENABLE_HUB_HEARTBEAT 1
 #define WISP_HUB_HEARTBEAT_MS 45000

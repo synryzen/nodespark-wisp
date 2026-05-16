@@ -196,8 +196,10 @@ Screen currentScreen = SCREEN_STATUS;
 
 enum SetupView { SETUP_MAIN, SETUP_WIFI_LIST, SETUP_INPUT };
 enum InputTarget { INPUT_NONE, INPUT_SSID, INPUT_WIFI_PASSWORD, INPUT_HUB_BASE, INPUT_HUB_PORT };
+enum WifiConnectState { WIFI_IDLE, WIFI_CONNECTING_SAVED, WIFI_CONNECTING_DEFAULT };
 SetupView setupView = SETUP_MAIN;
 InputTarget inputTarget = INPUT_NONE;
+WifiConnectState wifiConnectState = WIFI_IDLE;
 
 String hubUrl = WISP_HUB_URL;
 String hubBase;
@@ -228,6 +230,10 @@ uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
 uint32_t lastWifiDrawMs = 0;
 uint32_t lastTouchPollMs = 0;
+uint32_t wifiConnectStartMs = 0;
+uint32_t lastWifiStatusMs = 0;
+String activeWifiSsid;
+String activeWifiPassword;
 bool ampReady = false;
 bool micReady = false;
 bool bleReady = false;
@@ -363,6 +369,36 @@ String formatBytes(uint64_t bytes) {
   if (bytes >= 1024ULL * 1024ULL) return String((double)bytes / (1024.0 * 1024.0), 1) + " MB";
   if (bytes >= 1024ULL) return String((double)bytes / 1024.0, 1) + " KB";
   return String((unsigned long)bytes) + " B";
+}
+
+void appendSdLog(const String& event, const String& detail = "") {
+#if WISP_ENABLE_SD
+  digitalWrite(PIN_TFT_CS, HIGH);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  digitalWrite(PIN_SD_CS, HIGH);
+  if (!SD.begin(PIN_SD_CS, SPI, 4000000)) {
+    digitalWrite(PIN_SD_CS, HIGH);
+    return;
+  }
+  File file = SD.open("/nodespark_wisp_log.txt", FILE_APPEND);
+  if (file) {
+    file.print(millis());
+    file.print(",");
+    file.print(event);
+    if (detail.length()) {
+      file.print(",");
+      String clean = detail;
+      clean.replace("\n", " ");
+      clean.replace("\r", " ");
+      clean.replace(",", ";");
+      file.print(clean);
+    }
+    file.println();
+    file.close();
+  }
+  SD.end();
+  digitalWrite(PIN_SD_CS, HIGH);
+#endif
 }
 
 String clipped(String value, int maxLen) {
@@ -573,16 +609,23 @@ void drawSplash(const String& status) {
 
 void drawStatus() {
   drawHeader("NodeSpark Wisp ESP32", C_BLUE);
-  tft.setTextColor(ILI9341_WHITE, C_BG);
-  tft.drawString("Device", 14, 56, 2);
-  tft.drawString(deviceId, 86, 56, 2);
-  tft.drawString("Hub", 14, 78, 2);
-  drawWrapped(hubUrl, 86, 78, 26, 2, C_MUTED);
-  tft.drawString("Pairing", 14, 120, 2);
-  tft.setTextColor(token.length() ? C_GREEN : C_AMBER, C_BG);
-  tft.drawString(token.length() ? "Paired" : "Needs code", 86, 120, 2);
-  tft.setTextColor(C_MUTED, C_BG);
-  drawWrapped(lastStatus, 14, 148, 34, 2, C_MUTED);
+  tft.fillRoundRect(12, 54, 142, 54, 8, C_PANEL);
+  tft.fillRoundRect(166, 54, 142, 54, 8, C_PANEL);
+  tft.fillRoundRect(12, 118, 296, 54, 8, C_PANEL);
+
+  tft.setTextColor(C_MUTED, C_PANEL);
+  tft.drawString("Network", 24, 64, 2);
+  tft.drawString("Hub", 178, 64, 2);
+  tft.drawString("Status", 24, 128, 2);
+
+  tft.setTextColor(WiFi.isConnected() ? C_GREEN : C_AMBER, C_PANEL);
+  tft.drawString(WiFi.isConnected() ? WiFi.localIP().toString() : (wifiConnectState == WIFI_IDLE ? "Offline" : "Connecting"), 24, 82, 2);
+  tft.setTextColor(token.length() ? C_GREEN : C_AMBER, C_PANEL);
+  tft.drawString(token.length() ? "Paired" : "Pair needed", 178, 82, 2);
+  tft.setTextColor(C_MUTED, C_PANEL);
+  tft.drawString(clipped(lastStatus, 34), 24, 146, 2);
+  tft.setTextColor(lastSdStatus.startsWith("SD OK") ? C_GREEN : C_MUTED, C_PANEL);
+  tft.drawString(clipped(lastSdStatus, 32), 24, 164, 2);
   drawTabs();
 }
 
@@ -867,6 +910,102 @@ bool connectWifi(bool splash, uint32_t timeoutMs = WISP_WIFI_CONNECT_TIMEOUT_MS)
   return connected;
 }
 
+void redrawWifiStatusIfVisible() {
+  if (currentScreen == SCREEN_SETUP && setupView == SETUP_MAIN) drawSettingsMain();
+  else if (currentScreen == SCREEN_STATUS) drawStatus();
+}
+
+void beginWifiAttempt(const String& ssid, const String& password, WifiConnectState state) {
+  activeWifiSsid = ssid;
+  activeWifiPassword = password;
+  activeWifiSsid.trim();
+  if (!activeWifiSsid.length()) {
+    wifiConnectState = WIFI_IDLE;
+    lastStatus = "Choose Wi-Fi in Setup.";
+    redrawWifiStatusIfVisible();
+    return;
+  }
+
+  wifiConnectState = state;
+  wifiConnectStartMs = millis();
+  lastWifiStatusMs = 0;
+  lastStatus = state == WIFI_CONNECTING_DEFAULT ? "Auto Wi-Fi defaults..." : "Auto Wi-Fi saved...";
+  Serial.printf("[wifi] async connect to %s with power %s\n", activeWifiSsid.c_str(), wifiPowerName(WISP_WIFI_TX_POWER).c_str());
+
+  WiFi.persistent(false);
+  WiFi.disconnect(true, true);
+  WiFi.scanDelete();
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.setHostname("nodespark-wisp");
+  WiFi.setTxPower(WISP_WIFI_TX_POWER);
+  WiFi.begin(activeWifiSsid.c_str(), activeWifiPassword.c_str());
+  redrawWifiStatusIfVisible();
+}
+
+void startWifiConnect(bool useSavedFirst = true) {
+  String compiledSsid = WISP_WIFI_SSID;
+  String compiledPassword = WISP_WIFI_PASSWORD;
+  compiledSsid.trim();
+  wifiSsid.trim();
+
+  if (useSavedFirst && wifiSsid.length()) {
+    beginWifiAttempt(wifiSsid, wifiPassword, WIFI_CONNECTING_SAVED);
+  } else if (compiledSsid.length()) {
+    beginWifiAttempt(compiledSsid, compiledPassword, WIFI_CONNECTING_DEFAULT);
+  } else {
+    wifiConnectState = WIFI_IDLE;
+    lastStatus = "Choose Wi-Fi in Setup.";
+    redrawWifiStatusIfVisible();
+  }
+}
+
+void serviceWifiConnect() {
+  if (wifiConnectState == WIFI_IDLE) return;
+
+  if (WiFi.isConnected()) {
+    lastStatus = "Wi-Fi " + WiFi.localIP().toString();
+    Serial.printf("[wifi] connected %s\n", lastStatus.c_str());
+    appendSdLog("wifi_connected", WiFi.localIP().toString());
+    if (wifiConnectState == WIFI_CONNECTING_DEFAULT) {
+      wifiSsid = activeWifiSsid;
+      wifiPassword = activeWifiPassword;
+      saveNetworkSettings();
+    }
+    wifiConnectState = WIFI_IDLE;
+    lastCheckinMs = 0;
+    redrawWifiStatusIfVisible();
+    return;
+  }
+
+  uint32_t now = millis();
+  if (now - wifiConnectStartMs > WISP_WIFI_CONNECT_TIMEOUT_MS) {
+    String failedState = wifiStatusName(WiFi.status());
+    Serial.printf("[wifi] async failed: %s\n", failedState.c_str());
+    if (wifiConnectState == WIFI_CONNECTING_SAVED) {
+      String compiledSsid = WISP_WIFI_SSID;
+      String compiledPassword = WISP_WIFI_PASSWORD;
+      compiledSsid.trim();
+      if (compiledSsid.length() && (compiledSsid != activeWifiSsid || compiledPassword != activeWifiPassword)) {
+        lastStatus = "Saved failed. Trying defaults...";
+        beginWifiAttempt(compiledSsid, compiledPassword, WIFI_CONNECTING_DEFAULT);
+        return;
+      }
+    }
+    wifiConnectState = WIFI_IDLE;
+    lastStatus = "Wi-Fi " + failedState;
+    appendSdLog("wifi_failed", failedState);
+    redrawWifiStatusIfVisible();
+    return;
+  }
+
+  if (now - lastWifiStatusMs > 1500) {
+    lastWifiStatusMs = now;
+    lastStatus = "Wi-Fi " + String((now - wifiConnectStartMs) / 1000) + "s " + wifiStatusName(WiFi.status());
+    redrawWifiStatusIfVisible();
+  }
+}
+
 void scanWifiNetworks() {
   setupView = SETUP_WIFI_LIST;
   drawHeader("Choose Wi-Fi", C_BLUE);
@@ -965,7 +1104,7 @@ void runGuardedAction(const String& label, void (*action)()) {
 void actionScanWifi() { scanWifiNetworks(); }
 void actionConnectWifi() {
   saveNetworkSettings();
-  connectWifi(false, 10000);
+  startWifiConnect(true);
 }
 void actionLoadDefaults() {
   loadCompiledDefaults();
@@ -1037,6 +1176,14 @@ void actionCheckSdCard() {
     : "SD mounted, but write/read test failed. Check card format, module power, and CS GPIO14.";
   drawWrapped(body, 18, 62, 34, 5, ILI9341_WHITE);
   drawTabs();
+  if (file = SD.open("/nodespark_wisp_log.txt", FILE_APPEND)) {
+    file.print(millis());
+    file.print(",sd_check,");
+    file.print(ok ? "ok" : "failed");
+    file.print(" ");
+    file.println(formatBytes(size));
+    file.close();
+  }
   SD.end();
   digitalWrite(PIN_SD_CS, HIGH);
 #endif
@@ -1175,7 +1322,10 @@ void checkin() {
   body += "\"appVersion\":\"" + String(APP_VERSION) + "\",";
   body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"approval\",\"dashboard\",\"deviceCommands\",\"run\",\"pairing\"]}";
   String payload = request("POST", "/devices/checkin", body);
-  if (payload.length()) lastStatus = "Hub online. Commands ready.";
+  if (payload.length()) {
+    lastStatus = "Hub online. Commands ready.";
+    appendSdLog("hub_checkin", "ok");
+  }
 }
 
 void showCard(const String& title, const String& body, uint16_t accent = C_BLUE) {
@@ -1236,6 +1386,7 @@ void playChime(int kind = 0) {
   size_t written = 0;
   i2s_write(I2S_NUM_0, silence, sizeof(silence), &written, pdMS_TO_TICKS(100));
   lastStatus = "Tone played at " + String(audioVolumePercent) + "%.";
+  appendSdLog("tone", "volume " + String(audioVolumePercent));
 }
 
 String commandBody(const HubCommand& command, const String& fallback = "") {
@@ -1520,6 +1671,7 @@ void runWorkflow(const String& text) {
       if (!output.length()) output = doc["runId"].as<String>();
     }
     lastStatus = "Workflow sent to Hub.";
+    appendSdLog("workflow_sent", workflowName);
 #if WISP_ASYNC_WORKFLOWS
     if (output.length()) showCard(workflowName, "Sent to NodeSparkHub. Run " + output.substring(0, 48), C_GREEN);
     else showCard(workflowName, "Sent to NodeSparkHub. Watch the Hub run history for the AI response.", C_GREEN);
@@ -1684,7 +1836,7 @@ void setupAudio() {
 
 void setupWifi() {
 #if WISP_CONNECT_ON_BOOT
-  connectWifi(true, WISP_WIFI_CONNECT_TIMEOUT_MS);
+  startWifiConnect(true);
 #else
   WiFi.mode(WIFI_OFF);
   lastStatus = "Open Set > Conn for Wi-Fi.";
@@ -1733,6 +1885,7 @@ void setup() {
 
 void loop() {
   uint32_t now = millis();
+  serviceWifiConnect();
 
   if (!actionBusy && now - lastTouchPollMs >= WISP_TOUCH_POLL_MS) {
     lastTouchPollMs = now;
