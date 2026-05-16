@@ -153,6 +153,8 @@ public:
 WispTft tft;
 XPT2046_Touchscreen touch(PIN_TOUCH_CS, PIN_TOUCH_IRQ);
 Preferences prefs;
+WiFiClient hubPlainClient;
+WiFiClientSecure hubSecureClient;
 
 enum Screen { SCREEN_STATUS, SCREEN_PAIR, SCREEN_COMMANDS, SCREEN_DEMO, SCREEN_MIC, SCREEN_SETUP };
 Screen currentScreen = SCREEN_STATUS;
@@ -209,8 +211,18 @@ struct Button {
   uint16_t color;
 };
 
+struct HubCommand {
+  String id;
+  String kind;
+  String title;
+  String body;
+  String text;
+  String metricLabel;
+  String metricValue;
+};
+
 void askAssistant(const String& text);
-void executeCommand(JsonObject command);
+void executeCommand(const HubCommand& command);
 
 static const uint16_t C_BG = ILI9341_BLACK;
 static const uint16_t C_PANEL = 0x1084;
@@ -285,6 +297,12 @@ String clipped(String value, int maxLen) {
   if ((int)value.length() <= maxLen) return value;
   if (maxLen <= 1) return value.substring(0, maxLen);
   return value.substring(0, maxLen - 1) + "~";
+}
+
+String bounded(String value, int maxLen) {
+  value.trim();
+  if ((int)value.length() > maxLen) value = value.substring(0, maxLen);
+  return value;
 }
 
 void clampSetting(String& value, int maxLen) {
@@ -857,13 +875,11 @@ String request(const String& method, const String& path, const String& body = ""
   http.setTimeout(WISP_HTTP_TIMEOUT_MS);
   http.setReuse(false);
   bool started = false;
-  WiFiClient plainClient;
-  WiFiClientSecure secureClient;
   if (url.startsWith("https://")) {
-    secureClient.setInsecure();
-    started = http.begin(secureClient, url);
+    hubSecureClient.setInsecure();
+    started = http.begin(hubSecureClient, url);
   } else {
-    started = http.begin(plainClient, url);
+    started = http.begin(hubPlainClient, url);
   }
   if (!started) {
     lastStatus = "Bad Hub URL.";
@@ -979,45 +995,65 @@ void playChime(int kind = 0) {
   }
 }
 
-void executeCommand(JsonObject command) {
-  String id = command["id"].as<String>();
-  String kind = command["type"].as<String>();
-  kind.toLowerCase();
+String commandBody(const HubCommand& command, const String& fallback = "") {
+  if (command.body.length()) return command.body;
+  if (command.text.length()) return command.text;
+  return fallback;
+}
+
+String commandTitle(const HubCommand& command, const String& fallback) {
+  return command.title.length() ? command.title : fallback;
+}
+
+void loadCommand(JsonObject source, HubCommand& command) {
+  command.id = bounded(source["id"].as<String>(), 80);
+  command.kind = bounded(source["type"].as<String>(), 32);
+  command.kind.toLowerCase();
+  command.title = bounded(source["title"].as<String>(), 60);
+  command.body = bounded(source["body"].as<String>(), 260);
+  command.text = bounded(source["text"].as<String>(), 260);
+  command.metricLabel = bounded(source["metricLabel"].as<String>(), 48);
+  command.metricValue = bounded(source["metricValue"].as<String>(), 48);
+}
+
+void executeCommand(const HubCommand& command) {
+  String id = command.id;
+  String kind = command.kind;
   if (!kind.length()) kind = "display";
 
   if (kind == "display" || kind == "message" || kind == "show") {
-    String title = command["title"] | "NodeSparkHub";
-    String body = command["body"] | command["text"] | "";
+    String title = commandTitle(command, "NodeSparkHub");
+    String body = commandBody(command);
     showCard(title, body, C_BLUE);
     lastCommand = title + ": " + body;
     playChime(0);
     ackCommand(id, "completed", "displayed");
   } else if (kind == "assistant" || kind == "ask" || kind == "askai") {
-    String text = command["text"] | command["body"] | "Help me from NodeSpark Wisp.";
+    String text = commandBody(command, "Help me from NodeSpark Wisp.");
     askAssistant(text);
     lastCommand = "Assistant: " + text;
     ackCommand(id, "completed", "assistant requested");
   } else if (kind == "card" || kind == "demo" || kind == "showcase" || kind == "alert" || kind == "ai") {
-    String title = command["title"] | "NodeSparkHub Card";
-    String body = command["body"] | command["text"] | "";
+    String title = commandTitle(command, "NodeSparkHub Card");
+    String body = commandBody(command);
     showCard(title, body, C_PINK);
     lastCommand = "Card: " + title;
     playChime(0);
     ackCommand(id, "completed", "card shown");
   } else if (kind == "dashboard" || kind == "metrics") {
-    drawDashboard(command["title"] | "Workflow Monitor", command["metricLabel"] | "Hub", command["metricValue"] | "Live");
+    drawDashboard(commandTitle(command, "Workflow Monitor"), command.metricLabel.length() ? command.metricLabel : "Hub", command.metricValue.length() ? command.metricValue : "Live");
     lastCommand = "Dashboard shown";
     playChime(0);
     ackCommand(id, "completed", "dashboard shown");
   } else if (kind == "approval" || kind == "approve" || kind == "decision") {
     pendingApprovalId = id;
-    pendingApprovalTitle = command["title"] | "Approval Needed";
-    pendingApprovalBody = command["body"] | command["text"] | "Review this request.";
+    pendingApprovalTitle = commandTitle(command, "Approval Needed");
+    pendingApprovalBody = commandBody(command, "Review this request.");
     currentScreen = SCREEN_COMMANDS;
     drawCommands();
     playChime(2);
   } else if (kind == "speak" || kind == "speaker" || kind == "tts") {
-    String text = command["text"] | command["body"] | "";
+    String text = commandBody(command);
     showCard("Speaking", text, C_PINK);
     playChime(0);
     ackCommand(id, "completed", "chime played; TTS pending");
@@ -1087,11 +1123,11 @@ void processBleCommand() {
     return;
   }
   actionBusy = true;
-  JsonObject command = doc.as<JsonObject>();
-  command["source"] = "ios-ble-bridge";
+  HubCommand command;
+  loadCommand(doc.as<JsonObject>(), command);
   executeCommand(command);
   actionBusy = false;
-  bleNotifyEvent("command", command["type"] | "display");
+  bleNotifyEvent("command", command.kind.length() ? command.kind : "display");
   bleNotifyState();
 }
 
@@ -1145,10 +1181,25 @@ void pollCommands() {
   if (!token.length()) return;
   String payload = request("GET", "/devices/" + deviceId + "/commands/poll?limit=4");
   if (!payload.length()) return;
-  StaticJsonDocument<3072> doc;
-  if (deserializeJson(doc, payload)) return;
-  JsonArray commands = doc["commands"].as<JsonArray>();
-  for (JsonObject command : commands) executeCommand(command);
+  HubCommand queue[4];
+  int queued = 0;
+  {
+    DynamicJsonDocument doc(4096);
+    if (deserializeJson(doc, payload)) {
+      lastStatus = "Bad command JSON.";
+      return;
+    }
+    JsonArray commands = doc["commands"].as<JsonArray>();
+    for (JsonObject command : commands) {
+      if (queued >= 4) break;
+      loadCommand(command, queue[queued]);
+      queued++;
+    }
+  }
+  for (int i = 0; i < queued; i++) {
+    executeCommand(queue[i]);
+    yield();
+  }
 }
 
 void runWorkflow(const String& text) {
