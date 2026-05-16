@@ -2,10 +2,6 @@
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
-#include <BLE2902.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <SPI.h>
@@ -29,6 +25,16 @@
 #define WISP_TOUCH_MAX_Y 3700
 #endif
 
+#ifndef WISP_ENABLE_BLE
+#define WISP_ENABLE_BLE 0
+#endif
+#if WISP_ENABLE_BLE
+#include <BLE2902.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#endif
+
 // ESP32-S3 DevKit pin plan. Change here if your board labels differ.
 static constexpr int PIN_TFT_CS = 10;
 static constexpr int PIN_TFT_DC = 9;
@@ -50,10 +56,12 @@ static constexpr int PIN_MIC_SD = 18;
 static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr const char* APP_VERSION = "nodespark-wisp-esp32/0.1.0";
+#if WISP_ENABLE_BLE
 static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_EVENT_UUID = "4E530003-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_STATE_UUID = "4E530004-4E53-5749-5350-000000000001";
+#endif
 
 static constexpr int TL_DATUM = 0;
 static constexpr int ML_DATUM = 1;
@@ -159,10 +167,12 @@ bool bleReady = false;
 bool touchDown = false;
 bool actionBusy = false;
 uint32_t lastTouchHandledMs = 0;
+#if WISP_ENABLE_BLE
 BLECharacteristic* bleStateCharacteristic = nullptr;
 BLECharacteristic* bleEventCharacteristic = nullptr;
 char pendingBleRaw[512] = {0};
 volatile bool pendingBleCommand = false;
+#endif
 
 struct Button {
   int16_t x;
@@ -956,6 +966,7 @@ void executeCommand(JsonObject command) {
   }
 }
 
+#if WISP_ENABLE_BLE
 String bleStateJson() {
   String body = "{";
   body += "\"type\":\"state\",";
@@ -1055,6 +1066,14 @@ void setupBleBridge() {
   bleReady = true;
   Serial.println("[ble] Wisp Mobile Bridge advertising");
 }
+#else
+void bleNotifyState() {}
+void processBleCommand() {}
+void setupBleBridge() {
+  bleReady = false;
+  Serial.println("[ble] Wisp Mobile Bridge disabled in this stability build");
+}
+#endif
 
 void pollCommands() {
   if (!token.length()) return;

@@ -14,6 +14,12 @@
 #define WISP_DEVICE_NAME "NodeSpark Wisp ESP32"
 #define WISP_DEFAULT_WORKFLOW "Wisp Assistant"
 
+// Experimental on ESP32-S3: the BLE stack can cause reboot loops on some
+// Arduino-ESP32 2.x builds when combined with Wi-Fi, HTTPS, I2S, and TFT UI.
+// Keep disabled for stable demos. Use the Raspberry Pi Wisp for BLE bridge
+// demos until the ESP32 build moves to a lighter BLE stack.
+#define WISP_ENABLE_BLE 0
+
 // Touch calibration varies by 2.8 inch ILI9341/XPT2046 module.
 // If touches are reversed or offset, adjust these values after first boot.
 #define WISP_TOUCH_MIN_X 240

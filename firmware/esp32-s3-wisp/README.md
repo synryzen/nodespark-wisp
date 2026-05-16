@@ -14,8 +14,6 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
 - Use the touchscreen for pairing, navigation, local demos, and approvals.
 - Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL plus optional
   port on the touchscreen.
-- Advertise the same Wisp Mobile Bridge Bluetooth LE service used by the
-  Raspberry Pi build, so NodeSpark on iPhone can send direct BLE commands.
 - Use `Ask AI` to send a prompt into the NodeSparkHub `Wisp Assistant`
   workflow and show the Hub response.
 - Play I2S chimes through the MAX98357 amp.
@@ -148,24 +146,31 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
 
 ## Bluetooth Mobile Bridge
 
-The ESP32-S3 build advertises the same BLE GATT service as the Raspberry Pi
-Wisp:
+The ESP32-S3 firmware includes an experimental BLE bridge implementation using
+the same GATT service as the Raspberry Pi Wisp, but it is disabled by default
+because the Arduino-ESP32 BLE stack can reboot some ESP32-S3 boards when it is
+combined with Wi-Fi, HTTPS, I2S, and TFT UI in one sketch.
+
+For reliable demos today, use Bluetooth Mobile Bridge on the Raspberry Pi
+Wisp. To experiment on ESP32-S3, set `WISP_ENABLE_BLE` to `1` in `config.h`
+and build with the 16 MB / 3 MB app partition.
 
 - Service: `4E530001-4E53-5749-5350-000000000001`
 - Command characteristic: `4E530002-4E53-5749-5350-000000000001`
 - Event characteristic: `4E530003-4E53-5749-5350-000000000001`
 - State characteristic: `4E530004-4E53-5749-5350-000000000001`
 
-Open NodeSpark on iPhone, go to `Settings -> Hub Pairing & Control -> Wisp
-Mobile Bridge`, scan for `NodeSpark Wisp`, and connect. The iPhone can send
-compact JSON commands such as `ping`, `card`, and `dashboard` over BLE. The
-firmware processes BLE commands from the main loop so Bluetooth writes do not
-interrupt display or network work.
+When enabled, open NodeSpark on iPhone, go to `Settings -> Hub Pairing &
+Control -> Wisp Mobile Bridge`, scan for `NodeSpark Wisp`, and connect. The
+iPhone can send compact JSON commands such as `ping`, `card`, and `dashboard`
+over BLE. The firmware processes BLE commands from the main loop so Bluetooth
+writes do not interrupt display or network work.
 
 ## Current Limitations
 
-- BLE + HTTPS + display support requires the 16 MB / 3 MB app partition shown
-  in the build commands above.
+- ESP32-S3 BLE bridge is experimental and disabled by default for stability.
+  Use the Raspberry Pi Wisp for production Bluetooth Mobile Bridge demos until
+  the ESP32 build moves to a lighter BLE stack.
 - The MAX98357 path currently plays chimes. Full text-to-speech needs either a
   Hub audio endpoint, an onboard speech synthesis library, or iPhone bridge
   forwarding.
