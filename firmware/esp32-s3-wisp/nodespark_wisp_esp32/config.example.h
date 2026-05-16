@@ -20,6 +20,10 @@
 // demos until the ESP32 build moves to a lighter BLE stack.
 #define WISP_ENABLE_BLE 0
 
+// Keep audio disabled until the MAX98357 amp and INMP441 mic are wired. This
+// avoids initializing I2S pins that may be floating during display-only tests.
+#define WISP_ENABLE_AUDIO 0
+
 // Touch calibration varies by 2.8 inch ILI9341/XPT2046 module.
 // If touches are reversed or offset, adjust these values after first boot.
 #define WISP_TOUCH_MIN_X 240

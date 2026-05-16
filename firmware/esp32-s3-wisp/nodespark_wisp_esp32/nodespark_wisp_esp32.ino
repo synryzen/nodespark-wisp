@@ -9,6 +9,7 @@
 #include <WiFiClientSecure.h>
 #include <XPT2046_Touchscreen.h>
 #include "driver/i2s.h"
+#include "esp_system.h"
 #include "mascot_logo.h"
 
 #if __has_include("config.h")
@@ -27,6 +28,9 @@
 
 #ifndef WISP_ENABLE_BLE
 #define WISP_ENABLE_BLE 0
+#endif
+#ifndef WISP_ENABLE_AUDIO
+#define WISP_ENABLE_AUDIO 0
 #endif
 #if WISP_ENABLE_BLE
 #include <BLE2902.h>
@@ -201,6 +205,20 @@ uint16_t readableTextColor(uint16_t bg) {
   uint8_t b = (bg & 0x1F) << 3;
   uint16_t luminance = (uint16_t)r * 30 + (uint16_t)g * 59 + (uint16_t)b * 11;
   return luminance > 13000 ? ILI9341_BLACK : ILI9341_WHITE;
+}
+
+String resetReasonName(esp_reset_reason_t reason) {
+  if (reason == ESP_RST_POWERON) return "power on";
+  if (reason == ESP_RST_EXT) return "external reset";
+  if (reason == ESP_RST_SW) return "software reset";
+  if (reason == ESP_RST_PANIC) return "panic";
+  if (reason == ESP_RST_INT_WDT) return "interrupt watchdog";
+  if (reason == ESP_RST_TASK_WDT) return "task watchdog";
+  if (reason == ESP_RST_WDT) return "watchdog";
+  if (reason == ESP_RST_DEEPSLEEP) return "deep sleep";
+  if (reason == ESP_RST_BROWNOUT) return "brownout";
+  if (reason == ESP_RST_SDIO) return "sdio";
+  return "unknown " + String((int)reason);
 }
 
 String macId() {
@@ -637,6 +655,7 @@ bool connectWifi(bool splash) {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.disconnect(false);
   WiFi.scanDelete();
   delay(350);
@@ -663,6 +682,7 @@ void scanWifiNetworks() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.disconnect(false);
   WiFi.scanDelete();
   delay(350);
@@ -1229,6 +1249,12 @@ void handleTouch(int x, int y) {
 }
 
 void setupAudio() {
+#if !WISP_ENABLE_AUDIO
+  ampReady = false;
+  micReady = false;
+  Serial.println("[audio] disabled in firmware; set WISP_ENABLE_AUDIO=1 after wiring amp/mic");
+  return;
+#endif
   i2s_config_t ampConfig = {};
   ampConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
   ampConfig.sample_rate = 22050;
@@ -1267,6 +1293,7 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.println("[boot] NodeSpark Wisp ESP32-S3 starting");
+  Serial.printf("[boot] reset reason: %s\n", resetReasonName(esp_reset_reason()).c_str());
   prefs.begin("wisp", false);
   deviceId = prefs.getString("deviceId", "");
   String stableDeviceId = deviceUuidFromMac();
@@ -1316,16 +1343,12 @@ void loop() {
   if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastCheckinMs > 60000) {
     lastCheckinMs = millis();
     checkin();
-    if (currentScreen == SCREEN_STATUS) redraw();
   }
   if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastPollMs > 2000) {
     lastPollMs = millis();
     pollCommands();
     bleNotifyState();
   }
-  if (millis() - lastWifiDrawMs > 10000 && currentScreen == SCREEN_STATUS) {
-    lastWifiDrawMs = millis();
-    drawStatus();
-  }
+  // Avoid periodic full-screen redraws; they look like black flashes on ILI9341.
   yield();
 }
