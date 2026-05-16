@@ -451,6 +451,21 @@ String wifiStatusName(wl_status_t status) {
   return "status " + String((int)status);
 }
 
+String wifiPowerName(wifi_power_t power) {
+  if (power == WIFI_POWER_19_5dBm) return "19.5dBm";
+  if (power == WIFI_POWER_19dBm) return "19dBm";
+  if (power == WIFI_POWER_18_5dBm) return "18.5dBm";
+  if (power == WIFI_POWER_17dBm) return "17dBm";
+  if (power == WIFI_POWER_15dBm) return "15dBm";
+  if (power == WIFI_POWER_13dBm) return "13dBm";
+  if (power == WIFI_POWER_11dBm) return "11dBm";
+  if (power == WIFI_POWER_8_5dBm) return "8.5dBm";
+  if (power == WIFI_POWER_7dBm) return "7dBm";
+  if (power == WIFI_POWER_5dBm) return "5dBm";
+  if (power == WIFI_POWER_2dBm) return "2dBm";
+  return "custom";
+}
+
 void drawHeader(const String& title, uint16_t accent = C_BLUE) {
   tft.fillScreen(C_BG);
   tft.fillRoundRect(6, 6, SCREEN_W - 12, 36, 8, accent);
@@ -766,28 +781,37 @@ void beginInput(InputTarget target, const String& value) {
   drawKeyboard();
 }
 
-bool connectWifi(bool splash, uint32_t timeoutMs = WISP_WIFI_CONNECT_TIMEOUT_MS) {
-  wifiSsid.trim();
-  if (!wifiSsid.length()) {
+bool connectWifiAttempt(const String& ssid, const String& password, bool splash, uint32_t timeoutMs, const String& label) {
+  String targetSsid = ssid;
+  targetSsid.trim();
+  if (!targetSsid.length()) {
     lastStatus = "Choose Wi-Fi in Setup.";
     if (!splash) drawSetup();
     return false;
   }
-  Serial.printf("[wifi] connecting to %s\n", wifiSsid.c_str());
+  Serial.printf("[wifi] connecting to %s with power %s\n", targetSsid.c_str(), wifiPowerName(WISP_WIFI_TX_POWER).c_str());
   WiFi.persistent(false);
+  WiFi.disconnect(true, true);
+  WiFi.scanDelete();
+  delay(250);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setHostname("nodespark-wisp");
   WiFi.setTxPower(WISP_WIFI_TX_POWER);
-  WiFi.disconnect(false);
-  WiFi.scanDelete();
-  delay(350);
-  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
-  lastStatus = "Connecting Wi-Fi...";
+  delay(150);
+  WiFi.begin(targetSsid.c_str(), password.c_str());
+  lastStatus = label.length() ? label : "Connecting Wi-Fi...";
   if (splash) drawSplash(lastStatus);
   else drawSettingsMain();
   uint32_t start = millis();
+  uint32_t lastUiMs = 0;
   while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
     delay(250);
+    if (!splash && millis() - lastUiMs > 1500) {
+      lastUiMs = millis();
+      lastStatus = "Wi-Fi " + String((millis() - start) / 1000) + "s " + wifiStatusName(WiFi.status());
+      drawSettingsMain();
+    }
     yield();
   }
   lastStatus = WiFi.isConnected()
@@ -795,6 +819,28 @@ bool connectWifi(bool splash, uint32_t timeoutMs = WISP_WIFI_CONNECT_TIMEOUT_MS)
     : "Wi-Fi " + wifiStatusName(WiFi.status());
   Serial.printf("[wifi] %s\n", lastStatus.c_str());
   return WiFi.isConnected();
+}
+
+bool connectWifi(bool splash, uint32_t timeoutMs = WISP_WIFI_CONNECT_TIMEOUT_MS) {
+  wifiSsid.trim();
+  bool connected = connectWifiAttempt(wifiSsid, wifiPassword, splash, timeoutMs, "Connecting saved Wi-Fi...");
+  if (connected) return true;
+
+  String compiledSsid = WISP_WIFI_SSID;
+  String compiledPassword = WISP_WIFI_PASSWORD;
+  compiledSsid.trim();
+  if (!compiledSsid.length()) return false;
+  if (compiledSsid == wifiSsid && compiledPassword == wifiPassword) return false;
+
+  lastStatus = "Saved Wi-Fi failed. Trying defaults...";
+  if (!splash) drawSettingsMain();
+  connected = connectWifiAttempt(compiledSsid, compiledPassword, splash, timeoutMs, "Connecting default Wi-Fi...");
+  if (connected) {
+    wifiSsid = compiledSsid;
+    wifiPassword = compiledPassword;
+    saveNetworkSettings();
+  }
+  return connected;
 }
 
 void scanWifiNetworks() {
