@@ -40,7 +40,7 @@
 #define WISP_CONNECT_ON_BOOT 0
 #endif
 #ifndef WISP_ENABLE_BACKGROUND_HUB_POLL
-#define WISP_ENABLE_BACKGROUND_HUB_POLL 0
+#define WISP_ENABLE_BACKGROUND_HUB_POLL 1
 #endif
 #ifndef WISP_ENABLE_HUB_HEARTBEAT
 #define WISP_ENABLE_HUB_HEARTBEAT 1
@@ -71,6 +71,9 @@
 #endif
 #ifndef WISP_ASYNC_WORKFLOWS
 #define WISP_ASYNC_WORKFLOWS 1
+#endif
+#ifndef WISP_FORCE_DEFAULT_AMP_PINS
+#define WISP_FORCE_DEFAULT_AMP_PINS 0
 #endif
 #if WISP_ENABLE_BLE
 #include <BLE2902.h>
@@ -287,6 +290,7 @@ struct HubCommand {
 };
 
 void askAssistant(const String& text);
+bool askHubAssistant(const String& text);
 void executeCommand(const HubCommand& command);
 
 static const uint16_t C_BG = ILI9341_BLACK;
@@ -1802,7 +1806,50 @@ void runWorkflow(const String& text) {
 
 void askAssistant(const String& text) {
   showCard("Wisp Assistant", "Sending to NodeSparkHub AI...", C_PINK);
+  if (askHubAssistant(text)) return;
+  showCard("Wisp Assistant", "Direct AI did not answer. Trying the Wisp workflow...", C_AMBER);
   runWorkflow(text);
+}
+
+bool askHubAssistant(const String& text) {
+  if (!WiFi.isConnected()) {
+    lastStatus = "Connect Wi-Fi from Set > Conn first.";
+    showCard("Wi-Fi Needed", lastStatus, C_AMBER);
+    return true;
+  }
+  if (!token.length()) {
+    lastStatus = "Pair device before using Wisp Assistant.";
+    showCard("Pair Required", "Open Pair, enter the NodeSparkHub device code, then try Ask AI again.", C_AMBER);
+    return true;
+  }
+
+  String body = "{";
+  body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
+  body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  body += "\"text\":\"" + jsonEscape(text) + "\",";
+  body += "\"source\":\"wisp-esp32-touch\"}";
+
+  String payload = request("POST", "/wisp/assistant", body);
+  if (!payload.length()) return false;
+
+  DynamicJsonDocument doc(4096);
+  if (deserializeJson(doc, payload)) {
+    lastStatus = "Bad AI reply JSON.";
+    return false;
+  }
+
+  String reply = doc["reply"].as<String>();
+  if (!reply.length()) reply = doc["message"].as<String>();
+  if (!reply.length()) reply = doc["error"].as<String>();
+  if (!reply.length()) reply = "NodeSparkHub AI answered with an empty response.";
+
+  lastStatus = doc["ok"].as<bool>() ? "AI assistant answered." : "AI assistant error.";
+  showCard(doc["ok"].as<bool>() ? "Wisp Assistant" : "AI Setup Needed", reply.substring(0, 220), doc["ok"].as<bool>() ? C_PINK : C_AMBER);
+  if (doc["ok"].as<bool>()) {
+    playChime(1);
+    appendSdLog("assistant_reply", reply.substring(0, 80));
+  }
+  return true;
 }
 
 int sampleMicLevel() {
@@ -1971,7 +2018,12 @@ void setup() {
   Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   token = prefs.getString("token", "");
   audioVolumePercent = constrain(prefs.getInt("audioVol", 90), 0, 100);
+#if WISP_FORCE_DEFAULT_AMP_PINS
+  ampPinMode = 0;
+  prefs.putInt("ampPinMode", ampPinMode);
+#else
   ampPinMode = constrain(prefs.getInt("ampPinMode", 0), 0, AMP_PIN_MAP_COUNT - 1);
+#endif
   loadNetworkSettings();
 
   Serial.println("[display] init");
