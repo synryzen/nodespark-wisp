@@ -113,6 +113,23 @@ static constexpr int ML_DATUM = 1;
 static constexpr int MR_DATUM = 2;
 static constexpr int MC_DATUM = 3;
 
+struct AmpPinMap {
+  int bclk;
+  int lrclk;
+  int din;
+  const char* label;
+};
+
+static const AmpPinMap AMP_PIN_MAPS[] = {
+  {PIN_AMP_BCLK, PIN_AMP_LRCLK, PIN_AMP_DIN, "B4 L5 D16"},
+  {PIN_AMP_LRCLK, PIN_AMP_BCLK, PIN_AMP_DIN, "B5 L4 D16"},
+  {PIN_AMP_BCLK, PIN_AMP_DIN, PIN_AMP_LRCLK, "B4 L16 D5"},
+  {PIN_AMP_DIN, PIN_AMP_LRCLK, PIN_AMP_BCLK, "B16 L5 D4"},
+  {PIN_AMP_LRCLK, PIN_AMP_DIN, PIN_AMP_BCLK, "B5 L16 D4"},
+  {PIN_AMP_DIN, PIN_AMP_BCLK, PIN_AMP_LRCLK, "B16 L4 D5"},
+};
+static constexpr int AMP_PIN_MAP_COUNT = sizeof(AMP_PIN_MAPS) / sizeof(AMP_PIN_MAPS[0]);
+
 class WispTft {
 public:
   Adafruit_ILI9341 display;
@@ -222,6 +239,7 @@ int32_t scannedRssi[6];
 int scannedCount = 0;
 int keyboardPage = 0;
 int audioVolumePercent = 90;
+int ampPinMode = 0;
 int lastMicLevel = 0;
 int lastMicBytes = 0;
 String lastSdStatus = "SD not checked";
@@ -237,6 +255,7 @@ String activeWifiPassword;
 bool ampReady = false;
 bool micReady = false;
 bool bleReady = false;
+bool ampDriverInstalled = false;
 bool touchDown = false;
 bool actionBusy = false;
 uint32_t lastTouchHandledMs = 0;
@@ -423,6 +442,19 @@ void adjustAudioVolume(int delta) {
   audioVolumePercent = constrain(audioVolumePercent + delta, 0, 100);
   saveAudioVolume();
   lastStatus = "Volume " + String(audioVolumePercent) + "%";
+}
+
+int currentAmpPinIndex() {
+  return constrain(ampPinMode, 0, AMP_PIN_MAP_COUNT - 1);
+}
+
+String ampPinModeLabel() {
+  return String(AMP_PIN_MAPS[currentAmpPinIndex()].label);
+}
+
+void saveAmpPinMode() {
+  ampPinMode = currentAmpPinIndex();
+  prefs.putInt("ampPinMode", ampPinMode);
 }
 
 void clampSetting(String& value, int maxLen) {
@@ -689,12 +721,14 @@ void drawMic() {
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString(status, 16, 88, 2);
   tft.drawString("Volume " + String(audioVolumePercent) + "%", 16, 108, 2);
-  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 188, 2);
-  drawButton({16, 128, 64, 28, "Vol-", C_PANEL});
-  drawButton({88, 128, 64, 28, "Vol+", C_PANEL});
-  drawButton({160, 128, 64, 28, "Tone", C_PINK});
-  drawButton({232, 128, 72, 28, "Sample", C_BLUE});
-  drawButton({52, 160, 216, 26, "Voice Run", C_AMBER});
+  tft.drawString("Pins " + ampPinModeLabel(), 16, 126, 2);
+  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 192, 2);
+  drawButton({14, 146, 54, 28, "Vol-", C_PANEL});
+  drawButton({76, 146, 54, 28, "Vol+", C_PANEL});
+  drawButton({138, 146, 54, 28, "Pins", C_AMBER});
+  drawButton({200, 146, 48, 28, "Tone", C_PINK});
+  drawButton({256, 146, 50, 28, "Mic", C_BLUE});
+  drawButton({52, 176, 216, 24, "Voice Run", C_AMBER});
   drawTabs();
 }
 
@@ -1389,6 +1423,57 @@ void playChime(int kind = 0) {
   appendSdLog("tone", "volume " + String(audioVolumePercent));
 }
 
+bool configureAmpOutput() {
+#if !WISP_ENABLE_AUDIO
+  ampReady = false;
+  ampDriverInstalled = false;
+  return false;
+#else
+  if (ampDriverInstalled) {
+    i2s_driver_uninstall(I2S_NUM_0);
+    ampDriverInstalled = false;
+    ampReady = false;
+    delay(20);
+  }
+
+  i2s_config_t ampConfig = {};
+  ampConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
+  ampConfig.sample_rate = 22050;
+  ampConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
+  ampConfig.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
+  ampConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
+  ampConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
+  ampConfig.dma_buf_count = 4;
+  ampConfig.dma_buf_len = 256;
+  ampConfig.use_apll = false;
+
+  const AmpPinMap& map = AMP_PIN_MAPS[currentAmpPinIndex()];
+  i2s_pin_config_t ampPins = {map.bclk, map.lrclk, map.din, I2S_PIN_NO_CHANGE};
+  esp_err_t ampInstall = i2s_driver_install(I2S_NUM_0, &ampConfig, 0, nullptr);
+  esp_err_t ampPin = ampInstall == ESP_OK ? i2s_set_pin(I2S_NUM_0, &ampPins) : ampInstall;
+  ampReady = ampInstall == ESP_OK && ampPin == ESP_OK;
+  ampDriverInstalled = ampReady;
+  if (ampReady) i2s_zero_dma_buffer(I2S_NUM_0);
+  Serial.printf("[audio] amp mode=%d %s install=%d pin=%d pins bclk=%d lrclk=%d din=%d\n",
+                currentAmpPinIndex(),
+                map.label,
+                (int)ampInstall,
+                (int)ampPin,
+                map.bclk,
+                map.lrclk,
+                map.din);
+  return ampReady;
+#endif
+}
+
+void cycleAmpPins() {
+  ampPinMode = (currentAmpPinIndex() + 1) % AMP_PIN_MAP_COUNT;
+  saveAmpPinMode();
+  configureAmpOutput();
+  lastStatus = "Amp pins " + ampPinModeLabel();
+  appendSdLog("amp_pin_mode", ampPinModeLabel());
+}
+
 String commandBody(const HubCommand& command, const String& fallback = "") {
   if (command.body.length()) return command.body;
   if (command.text.length()) return command.text;
@@ -1774,20 +1859,25 @@ void handleTouch(int x, int y) {
       playChime(2);
     }
   } else if (currentScreen == SCREEN_MIC) {
-    if (inBox(x, y, {16, 128, 64, 28, "", C_PANEL})) {
+    if (inBox(x, y, {14, 146, 54, 28, "", C_PANEL})) {
       adjustAudioVolume(-10);
       drawMic();
-    } else if (inBox(x, y, {88, 128, 64, 28, "", C_PANEL})) {
+    } else if (inBox(x, y, {76, 146, 54, 28, "", C_PANEL})) {
       adjustAudioVolume(10);
       drawMic();
-    } else if (inBox(x, y, {160, 128, 64, 28, "", C_PINK})) {
+    } else if (inBox(x, y, {138, 146, 54, 28, "", C_AMBER})) {
+      cycleAmpPins();
+      drawMic();
       playChime(0);
       drawMic();
-    } else if (inBox(x, y, {232, 128, 72, 28, "", C_BLUE})) {
+    } else if (inBox(x, y, {200, 146, 48, 28, "", C_PINK})) {
+      playChime(0);
+      drawMic();
+    } else if (inBox(x, y, {256, 146, 50, 28, "", C_BLUE})) {
       int level = sampleMicLevel();
       drawMic();
       tft.fillRoundRect(18, 70, map(level, 0, 1023, 6, 284), 10, 5, C_GREEN);
-    } else if (inBox(x, y, {52, 160, 216, 26, "", C_AMBER})) {
+    } else if (inBox(x, y, {52, 176, 216, 24, "", C_AMBER})) {
       runWorkflow("ESP32-S3 Wisp voice button pressed. Audio upload support will be added next.");
     }
   }
@@ -1800,22 +1890,7 @@ void setupAudio() {
   Serial.println("[audio] disabled in firmware; set WISP_ENABLE_AUDIO=1 after wiring amp/mic");
   return;
 #endif
-  i2s_config_t ampConfig = {};
-  ampConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
-  ampConfig.sample_rate = 22050;
-  ampConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
-  ampConfig.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-  ampConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
-  ampConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-  ampConfig.dma_buf_count = 4;
-  ampConfig.dma_buf_len = 256;
-  ampConfig.use_apll = false;
-  i2s_pin_config_t ampPins = {PIN_AMP_BCLK, PIN_AMP_LRCLK, PIN_AMP_DIN, I2S_PIN_NO_CHANGE};
-  esp_err_t ampInstall = i2s_driver_install(I2S_NUM_0, &ampConfig, 0, nullptr);
-  esp_err_t ampPin = ampInstall == ESP_OK ? i2s_set_pin(I2S_NUM_0, &ampPins) : ampInstall;
-  ampReady = ampInstall == ESP_OK && ampPin == ESP_OK;
-  if (ampReady) i2s_zero_dma_buffer(I2S_NUM_0);
-  Serial.printf("[audio] amp install=%d pin=%d pins bclk=%d lrclk=%d din=%d\n", (int)ampInstall, (int)ampPin, PIN_AMP_BCLK, PIN_AMP_LRCLK, PIN_AMP_DIN);
+  configureAmpOutput();
 
   i2s_config_t micConfig = {};
   micConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
@@ -1862,6 +1937,7 @@ void setup() {
   Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   token = prefs.getString("token", "");
   audioVolumePercent = constrain(prefs.getInt("audioVol", 90), 0, 100);
+  ampPinMode = constrain(prefs.getInt("ampPinMode", 0), 0, AMP_PIN_MAP_COUNT - 1);
   loadNetworkSettings();
 
   Serial.println("[display] init");
