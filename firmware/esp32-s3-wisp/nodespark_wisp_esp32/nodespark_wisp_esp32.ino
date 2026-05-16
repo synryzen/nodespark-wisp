@@ -209,6 +209,7 @@ String scannedSsids[6];
 int32_t scannedRssi[6];
 int scannedCount = 0;
 int keyboardPage = 0;
+int audioVolumePercent = 90;
 
 uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
@@ -355,6 +356,17 @@ String bounded(String value, int maxLen) {
   value.trim();
   if ((int)value.length() > maxLen) value = value.substring(0, maxLen);
   return value;
+}
+
+void saveAudioVolume() {
+  audioVolumePercent = constrain(audioVolumePercent, 0, 100);
+  prefs.putInt("audioVol", audioVolumePercent);
+}
+
+void adjustAudioVolume(int delta) {
+  audioVolumePercent = constrain(audioVolumePercent + delta, 0, 100);
+  saveAudioVolume();
+  lastStatus = "Volume " + String(audioVolumePercent) + "%";
 }
 
 void clampSetting(String& value, int maxLen) {
@@ -592,15 +604,18 @@ void drawMic() {
   drawHeader("INMP441 Mic", C_PINK);
   tft.setTextColor(ILI9341_WHITE, C_BG);
   tft.drawString("Live level", 16, 58, 4);
-  drawButton({20, 150, 128, 38, "Sample", C_BLUE});
-  drawButton({172, 150, 128, 38, "Voice Run", C_AMBER});
   String status = "Amp ";
   status += ampReady ? "ready" : "off";
   status += "   Mic ";
   status += micReady ? "ready" : "off";
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString(status, 16, 96, 2);
-  drawWrapped("Voice Run sends a workflow event. Raw audio upload is reserved for a later Hub endpoint.", 16, 118, 36, 2, C_MUTED);
+  tft.drawString(status, 16, 88, 2);
+  tft.drawString("Volume " + String(audioVolumePercent) + "%", 16, 108, 2);
+  drawButton({16, 128, 64, 28, "Vol-", C_PANEL});
+  drawButton({88, 128, 64, 28, "Vol+", C_PANEL});
+  drawButton({160, 128, 64, 28, "Tone", C_PINK});
+  drawButton({232, 128, 72, 28, "Sample", C_BLUE});
+  drawButton({52, 164, 216, 30, "Voice Run", C_AMBER});
   drawTabs();
 }
 
@@ -1052,12 +1067,18 @@ void playChime(int kind = 0) {
     return;
   }
   const int sampleRate = 22050;
+  const int amplitude = map(audioVolumePercent, 0, 100, 0, 28000);
+  if (amplitude <= 0) {
+    lastStatus = "Volume is 0%.";
+    return;
+  }
   int freqs[3] = {523, kind == 1 ? 392 : 659, kind == 2 ? 330 : 784};
+  Serial.printf("[audio] chime kind=%d volume=%d%% amplitude=%d\n", kind, audioVolumePercent, amplitude);
   for (int f : freqs) {
     for (int i = 0; i < sampleRate / 5; i++) {
       float phase = 2.0f * PI * f * i / sampleRate;
       float envelope = 1.0f - ((float)i / (sampleRate / 5));
-      int16_t sample = (int16_t)(sin(phase) * 14000 * envelope);
+      int16_t sample = (int16_t)(sin(phase) * amplitude * envelope);
       int16_t stereo[2] = {sample, sample};
       size_t written = 0;
       i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &written, pdMS_TO_TICKS(20));
@@ -1065,6 +1086,7 @@ void playChime(int kind = 0) {
     }
     yield();
   }
+  lastStatus = "Tone played at " + String(audioVolumePercent) + "%.";
 }
 
 String commandBody(const HubCommand& command, const String& fallback = "") {
@@ -1440,11 +1462,20 @@ void handleTouch(int x, int y) {
       playChime(2);
     }
   } else if (currentScreen == SCREEN_MIC) {
-    if (inBox(x, y, {20, 150, 128, 38, "", C_BLUE})) {
+    if (inBox(x, y, {16, 128, 64, 28, "", C_PANEL})) {
+      adjustAudioVolume(-10);
+      drawMic();
+    } else if (inBox(x, y, {88, 128, 64, 28, "", C_PANEL})) {
+      adjustAudioVolume(10);
+      drawMic();
+    } else if (inBox(x, y, {160, 128, 64, 28, "", C_PINK})) {
+      playChime(0);
+      drawMic();
+    } else if (inBox(x, y, {232, 128, 72, 28, "", C_BLUE})) {
       int level = sampleMicLevel();
       drawMic();
-      tft.fillRoundRect(18, 92, map(level, 0, 1023, 6, 284), 22, 8, C_GREEN);
-    } else if (inBox(x, y, {172, 150, 128, 38, "", C_AMBER})) {
+      tft.fillRoundRect(18, 70, map(level, 0, 1023, 6, 284), 10, 5, C_GREEN);
+    } else if (inBox(x, y, {52, 164, 216, 30, "", C_AMBER})) {
       runWorkflow("ESP32-S3 Wisp voice button pressed. Audio upload support will be added next.");
     }
   }
@@ -1513,6 +1544,7 @@ void setup() {
   }
   Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   token = prefs.getString("token", "");
+  audioVolumePercent = constrain(prefs.getInt("audioVol", 90), 0, 100);
   loadNetworkSettings();
 
   Serial.println("[display] init");
