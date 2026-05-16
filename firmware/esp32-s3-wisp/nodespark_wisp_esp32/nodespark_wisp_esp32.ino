@@ -286,6 +286,33 @@ String jsonEscape(const String& value) {
   return out;
 }
 
+String urlEncodePath(String value) {
+  const char* hex = "0123456789ABCDEF";
+  String out;
+  for (size_t i = 0; i < value.length(); i++) {
+    uint8_t c = (uint8_t)value[i];
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+        c == '-' || c == '_' || c == '.' || c == '~') {
+      out += (char)c;
+    } else {
+      out += '%';
+      out += hex[(c >> 4) & 0x0F];
+      out += hex[c & 0x0F];
+    }
+  }
+  return out;
+}
+
+String normalizedWorkflowName(String value) {
+  value.toLowerCase();
+  String out;
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value[i];
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) out += c;
+  }
+  return out;
+}
+
 String repeatedChar(char c, int count) {
   String out;
   for (int i = 0; i < count; i++) out += c;
@@ -1202,6 +1229,40 @@ void pollCommands() {
   }
 }
 
+String resolveHubWorkflow(const String& preferred) {
+  String payload = request("GET", "/workflows");
+  if (!payload.length()) return preferred;
+
+  StaticJsonDocument<2048> doc;
+  if (deserializeJson(doc, payload)) return preferred;
+  JsonArray workflows = doc["workflows"].as<JsonArray>();
+  if (workflows.isNull() || workflows.size() == 0) {
+    lastStatus = "No Hub workflows found.";
+    return "";
+  }
+
+  String preferredNorm = normalizedWorkflowName(preferred);
+  String first;
+  String assistantMatch;
+  for (JsonVariant item : workflows) {
+    String name = bounded(item.as<String>(), 80);
+    if (!name.length()) continue;
+    if (!first.length()) first = name;
+    String norm = normalizedWorkflowName(name);
+    if (norm == preferredNorm) return name;
+    if (!assistantMatch.length() && (norm.indexOf("wisp") >= 0 || norm.indexOf("assistant") >= 0 || norm.indexOf("ai") >= 0)) {
+      assistantMatch = name;
+    }
+  }
+
+  if (assistantMatch.length()) {
+    lastStatus = "Using workflow " + assistantMatch;
+    return assistantMatch;
+  }
+  lastStatus = "Using workflow " + first;
+  return first;
+}
+
 void runWorkflow(const String& text) {
   if (!WiFi.isConnected()) {
     lastStatus = "Connect Wi-Fi from Set > Conn first.";
@@ -1213,12 +1274,19 @@ void runWorkflow(const String& text) {
     showCard("Pair Required", "Open Pair, enter the NodeSparkHub device code, then try Ask AI again.", C_AMBER);
     return;
   }
-  String path = "/workflows/" + defaultWorkflow + "/run";
-  path.replace(" ", "%20");
+  String workflowName = resolveHubWorkflow(defaultWorkflow);
+  if (!workflowName.length()) {
+    showCard("No Workflows", "NodeSparkHub is connected, but no workflows are available yet.", C_AMBER);
+    return;
+  }
+
+  String path = "/workflows/" + urlEncodePath(workflowName) + "/run";
   String body = "{";
   body += "\"source\":\"wisp-esp32\",";
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
   body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  body += "\"workflow\":\"" + jsonEscape(workflowName) + "\",";
+  body += "\"wispEvent\":\"askAI\",";
   body += "\"text\":\"" + jsonEscape(text) + "\",";
   body += "\"input\":\"" + jsonEscape(text) + "\"}";
   String payload = request("POST", path, body);
@@ -1232,8 +1300,8 @@ void runWorkflow(const String& text) {
       if (!output.length()) output = doc["status"].as<String>();
     }
     lastStatus = "Workflow sent to Hub.";
-    if (output.length()) showCard("Wisp Assistant", output.substring(0, 180), C_PINK);
-    else showCard("Wisp Assistant", "Workflow sent to NodeSparkHub. No text response was returned yet.", C_GREEN);
+    if (output.length()) showCard(workflowName, output.substring(0, 180), C_PINK);
+    else showCard(workflowName, "Workflow sent to NodeSparkHub. No text response was returned yet.", C_GREEN);
   } else {
     String failure = lastStatus.length() ? lastStatus : "Workflow failed.";
     lastStatus = failure;
