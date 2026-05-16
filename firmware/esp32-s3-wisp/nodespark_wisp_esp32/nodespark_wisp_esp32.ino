@@ -112,20 +112,34 @@ WispTft tft;
 XPT2046_Touchscreen touch(PIN_TOUCH_CS, PIN_TOUCH_IRQ);
 Preferences prefs;
 
-enum Screen { SCREEN_STATUS, SCREEN_PAIR, SCREEN_COMMANDS, SCREEN_DEMO, SCREEN_MIC };
+enum Screen { SCREEN_STATUS, SCREEN_PAIR, SCREEN_COMMANDS, SCREEN_DEMO, SCREEN_MIC, SCREEN_SETUP };
 Screen currentScreen = SCREEN_STATUS;
 
+enum SetupView { SETUP_MAIN, SETUP_WIFI_LIST, SETUP_INPUT };
+enum InputTarget { INPUT_NONE, INPUT_SSID, INPUT_WIFI_PASSWORD, INPUT_HUB_BASE, INPUT_HUB_PORT };
+SetupView setupView = SETUP_MAIN;
+InputTarget inputTarget = INPUT_NONE;
+
 String hubUrl = WISP_HUB_URL;
+String hubBase;
+String hubPort;
+String wifiSsid;
+String wifiPassword;
 String deviceName = WISP_DEVICE_NAME;
 String defaultWorkflow = WISP_DEFAULT_WORKFLOW;
 String deviceId;
 String token;
 String pairCode;
+String editBuffer;
 String lastCommand = "Waiting for Hub command";
 String lastStatus = "Booting";
 String pendingApprovalId;
 String pendingApprovalTitle;
 String pendingApprovalBody;
+String scannedSsids[6];
+int32_t scannedRssi[6];
+int scannedCount = 0;
+int keyboardPage = 0;
 
 uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
@@ -169,6 +183,60 @@ String jsonEscape(const String& value) {
   return out;
 }
 
+String repeatedChar(char c, int count) {
+  String out;
+  for (int i = 0; i < count; i++) out += c;
+  return out;
+}
+
+String normalizedHubBase(String input) {
+  input.trim();
+  if (!input.startsWith("http://") && !input.startsWith("https://")) input = "http://" + input;
+  while (input.endsWith("/")) input.remove(input.length() - 1);
+  int schemeEnd = input.indexOf("://");
+  int hostStart = schemeEnd >= 0 ? schemeEnd + 3 : 0;
+  int slash = input.indexOf('/', hostStart);
+  if (slash >= 0) input = input.substring(0, slash);
+  int colon = input.indexOf(':', hostStart);
+  if (colon >= 0) input = input.substring(0, colon);
+  return input;
+}
+
+String portFromHubUrl(String input, const String& fallback) {
+  input.trim();
+  int schemeEnd = input.indexOf("://");
+  int hostStart = schemeEnd >= 0 ? schemeEnd + 3 : 0;
+  int slash = input.indexOf('/', hostStart);
+  String host = slash >= 0 ? input.substring(hostStart, slash) : input.substring(hostStart);
+  int colon = host.lastIndexOf(':');
+  if (colon >= 0 && colon < (int)host.length() - 1) return host.substring(colon + 1);
+  return fallback;
+}
+
+void updateHubUrl() {
+  hubBase = normalizedHubBase(hubBase.length() ? hubBase : WISP_HUB_URL);
+  hubPort.trim();
+  hubUrl = hubBase;
+  if (hubPort.length()) hubUrl += ":" + hubPort;
+}
+
+void loadNetworkSettings() {
+  wifiSsid = prefs.getString("wifiSsid", WISP_WIFI_SSID);
+  wifiPassword = prefs.getString("wifiPass", WISP_WIFI_PASSWORD);
+  hubBase = prefs.getString("hubBase", normalizedHubBase(WISP_HUB_URL));
+  hubPort = prefs.getString("hubPort", portFromHubUrl(WISP_HUB_URL, "8787"));
+  updateHubUrl();
+}
+
+void saveNetworkSettings() {
+  updateHubUrl();
+  prefs.putString("wifiSsid", wifiSsid);
+  prefs.putString("wifiPass", wifiPassword);
+  prefs.putString("hubBase", hubBase);
+  prefs.putString("hubPort", hubPort);
+  lastStatus = "Settings saved.";
+}
+
 void drawHeader(const String& title, uint16_t accent = C_BLUE) {
   tft.fillScreen(C_BG);
   tft.fillRoundRect(6, 6, SCREEN_W - 12, 36, 8, accent);
@@ -191,11 +259,12 @@ void drawButton(const Button& b) {
 
 void drawTabs() {
   Button tabs[] = {
-    {4, 204, 60, 30, "Status", currentScreen == SCREEN_STATUS ? C_BLUE : C_PANEL},
-    {67, 204, 58, 30, "Pair", currentScreen == SCREEN_PAIR ? C_BLUE : C_PANEL},
-    {128, 204, 64, 30, "Cmds", currentScreen == SCREEN_COMMANDS ? C_BLUE : C_PANEL},
-    {195, 204, 58, 30, "Demo", currentScreen == SCREEN_DEMO ? C_BLUE : C_PANEL},
-    {256, 204, 60, 30, "Mic", currentScreen == SCREEN_MIC ? C_BLUE : C_PANEL},
+    {4, 204, 49, 30, "Stat", currentScreen == SCREEN_STATUS ? C_BLUE : C_PANEL},
+    {56, 204, 49, 30, "Pair", currentScreen == SCREEN_PAIR ? C_BLUE : C_PANEL},
+    {108, 204, 49, 30, "Cmd", currentScreen == SCREEN_COMMANDS ? C_BLUE : C_PANEL},
+    {160, 204, 49, 30, "Demo", currentScreen == SCREEN_DEMO ? C_BLUE : C_PANEL},
+    {212, 204, 49, 30, "Mic", currentScreen == SCREEN_MIC ? C_BLUE : C_PANEL},
+    {264, 204, 52, 30, "Set", currentScreen == SCREEN_SETUP ? C_BLUE : C_PANEL},
   };
   for (auto& tab : tabs) drawButton(tab);
 }
@@ -318,12 +387,109 @@ void drawMic() {
   drawTabs();
 }
 
+String inputTitle() {
+  if (inputTarget == INPUT_SSID) return "Wi-Fi Name";
+  if (inputTarget == INPUT_WIFI_PASSWORD) return "Wi-Fi Password";
+  if (inputTarget == INPUT_HUB_BASE) return "Hub URL";
+  if (inputTarget == INPUT_HUB_PORT) return "Hub Port";
+  return "Input";
+}
+
+void drawSettingsMain() {
+  drawHeader("Wisp Setup", C_AMBER);
+  drawButton({12, 50, 92, 30, "Scan", C_BLUE});
+  drawButton({114, 50, 92, 30, "Connect", C_GREEN});
+  drawButton({216, 50, 92, 30, "Save", C_PINK});
+
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString("SSID", 14, 90, 2);
+  tft.fillRoundRect(74, 86, 232, 24, 6, C_PANEL);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  tft.drawString(wifiSsid.length() ? wifiSsid : "tap or scan", 82, 92, 2);
+
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString("Pass", 14, 120, 2);
+  tft.fillRoundRect(74, 116, 232, 24, 6, C_PANEL);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  tft.drawString(wifiPassword.length() ? repeatedChar('*', min(14, (int)wifiPassword.length())) : "tap to enter", 82, 122, 2);
+
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString("URL", 14, 150, 2);
+  tft.fillRoundRect(74, 146, 232, 24, 6, C_PANEL);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  drawWrapped(hubBase, 82, 152, 27, 1, ILI9341_WHITE);
+
+  tft.setTextColor(C_MUTED, C_BG);
+  tft.drawString("Port", 14, 180, 2);
+  tft.fillRoundRect(74, 176, 90, 22, 6, C_PANEL);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  tft.drawString(hubPort.length() ? hubPort : "none", 82, 182, 2);
+  tft.setTextColor(WiFi.isConnected() ? C_GREEN : C_AMBER, C_BG);
+  drawWrapped(lastStatus, 174, 176, 16, 1, WiFi.isConnected() ? C_GREEN : C_AMBER);
+  drawTabs();
+}
+
+void drawWifiList() {
+  drawHeader("Choose Wi-Fi", C_BLUE);
+  drawButton({12, 50, 90, 28, "Rescan", C_BLUE});
+  drawButton({218, 50, 90, 28, "Back", C_AMBER});
+  if (!scannedCount) {
+    drawWrapped("No networks found. Tap Rescan or enter SSID manually from Setup.", 14, 96, 36, 3, C_MUTED);
+  }
+  for (int i = 0; i < scannedCount; i++) {
+    int y = 84 + i * 19;
+    tft.fillRoundRect(14, y, 292, 17, 5, scannedSsids[i] == wifiSsid ? C_BLUE : C_PANEL);
+    tft.setTextColor(scannedSsids[i] == wifiSsid ? ILI9341_BLACK : ILI9341_WHITE, scannedSsids[i] == wifiSsid ? C_BLUE : C_PANEL);
+    String row = scannedSsids[i].substring(0, 23) + " " + String(scannedRssi[i]) + "dBm";
+    tft.drawString(row, 22, y + 3, 2);
+  }
+  drawTabs();
+}
+
+void drawKeyboard() {
+  drawHeader(inputTitle(), C_PINK);
+  tft.fillRoundRect(8, 48, 304, 28, 6, C_PANEL);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  String shown = editBuffer;
+  if (inputTarget == INPUT_WIFI_PASSWORD && shown.length()) shown = repeatedChar('*', min(22, (int)shown.length()));
+  if (!shown.length()) shown = inputTarget == INPUT_HUB_BASE ? "https://..." : "";
+  drawWrapped(shown, 16, 56, 34, 1, ILI9341_WHITE);
+
+  const char* rows0[] = {"qwertyuiop", "asdfghjkl@", "zxcvbnm.-_"};
+  const char* rows1[] = {"QWERTYUIOP", "ASDFGHJKL@", "ZXCVBNM.-_"};
+  const char* rows2[] = {"1234567890", ":/?.#&+=!", "[]{}()%*$'"};
+  const char** rows = keyboardPage == 0 ? rows0 : (keyboardPage == 1 ? rows1 : rows2);
+  for (int r = 0; r < 3; r++) {
+    int y = 84 + r * 28;
+    for (int c = 0; c < 10; c++) {
+      int x = 4 + c * 31;
+      tft.fillRoundRect(x, y, 28, 23, 5, C_PANEL);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextColor(ILI9341_WHITE, C_PANEL);
+      tft.drawString(String(rows[r][c]), x + 14, y + 12, 2);
+      tft.setTextDatum(TL_DATUM);
+    }
+  }
+  drawButton({4, 170, 50, 28, "Del", C_AMBER});
+  drawButton({58, 170, 74, 28, "Space", C_BLUE});
+  drawButton({136, 170, 54, 28, keyboardPage == 0 ? "ABC" : (keyboardPage == 1 ? "123" : "abc"), C_PANEL});
+  drawButton({194, 170, 54, 28, "Clear", C_RED});
+  drawButton({252, 170, 64, 28, "Done", C_GREEN});
+}
+
+void drawSetup() {
+  if (setupView == SETUP_WIFI_LIST) drawWifiList();
+  else if (setupView == SETUP_INPUT) drawKeyboard();
+  else drawSettingsMain();
+}
+
 void redraw() {
   if (currentScreen == SCREEN_STATUS) drawStatus();
   else if (currentScreen == SCREEN_PAIR) drawPair();
   else if (currentScreen == SCREEN_COMMANDS) drawCommands();
   else if (currentScreen == SCREEN_DEMO) drawDemo();
-  else drawMic();
+  else if (currentScreen == SCREEN_MIC) drawMic();
+  else drawSetup();
 }
 
 bool touched(int& x, int& y) {
@@ -347,6 +513,148 @@ bool touched(int& x, int& y) {
 
 bool inBox(int x, int y, const Button& b) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
+}
+
+void beginInput(InputTarget target, const String& value) {
+  inputTarget = target;
+  editBuffer = value;
+  keyboardPage = target == INPUT_HUB_PORT ? 2 : 0;
+  setupView = SETUP_INPUT;
+  currentScreen = SCREEN_SETUP;
+  drawKeyboard();
+}
+
+bool connectWifi(bool splash) {
+  wifiSsid.trim();
+  if (!wifiSsid.length()) {
+    lastStatus = "Choose Wi-Fi in Setup.";
+    if (!splash) drawSetup();
+    return false;
+  }
+  Serial.printf("[wifi] connecting to %s\n", wifiSsid.c_str());
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false);
+  delay(120);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  lastStatus = "Connecting Wi-Fi...";
+  if (splash) drawSplash(lastStatus);
+  else drawSettingsMain();
+  uint32_t start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) delay(250);
+  lastStatus = WiFi.isConnected() ? "Wi-Fi " + WiFi.localIP().toString() : "Wi-Fi failed.";
+  Serial.printf("[wifi] %s\n", lastStatus.c_str());
+  return WiFi.isConnected();
+}
+
+void scanWifiNetworks() {
+  setupView = SETUP_WIFI_LIST;
+  drawHeader("Choose Wi-Fi", C_BLUE);
+  drawWrapped("Scanning nearby networks...", 16, 72, 34, 2, C_MUTED);
+  WiFi.mode(WIFI_STA);
+  int found = WiFi.scanNetworks(false, true);
+  scannedCount = constrain(found, 0, 6);
+  for (int i = 0; i < scannedCount; i++) {
+    scannedSsids[i] = WiFi.SSID(i);
+    scannedRssi[i] = WiFi.RSSI(i);
+  }
+  drawWifiList();
+}
+
+void finishInput() {
+  if (inputTarget == INPUT_SSID) wifiSsid = editBuffer;
+  else if (inputTarget == INPUT_WIFI_PASSWORD) wifiPassword = editBuffer;
+  else if (inputTarget == INPUT_HUB_BASE) hubBase = normalizedHubBase(editBuffer);
+  else if (inputTarget == INPUT_HUB_PORT) {
+    hubPort = "";
+    for (size_t i = 0; i < editBuffer.length(); i++) {
+      if (isDigit(editBuffer[i])) hubPort += editBuffer[i];
+    }
+  }
+  updateHubUrl();
+  inputTarget = INPUT_NONE;
+  setupView = SETUP_MAIN;
+  drawSettingsMain();
+}
+
+char keyboardCharAt(int x, int y) {
+  const char* rows0[] = {"qwertyuiop", "asdfghjkl@", "zxcvbnm.-_"};
+  const char* rows1[] = {"QWERTYUIOP", "ASDFGHJKL@", "ZXCVBNM.-_"};
+  const char* rows2[] = {"1234567890", ":/?.#&+=!", "[]{}()%*$'"};
+  const char** rows = keyboardPage == 0 ? rows0 : (keyboardPage == 1 ? rows1 : rows2);
+  for (int r = 0; r < 3; r++) {
+    int rowY = 84 + r * 28;
+    if (y < rowY || y >= rowY + 23) continue;
+    int c = (x - 4) / 31;
+    int keyX = 4 + c * 31;
+    if (c >= 0 && c < 10 && x >= keyX && x < keyX + 28) return rows[r][c];
+  }
+  return 0;
+}
+
+void handleKeyboardTouch(int x, int y) {
+  char c = keyboardCharAt(x, y);
+  if (c) {
+    if (inputTarget != INPUT_HUB_PORT || isDigit(c)) {
+      if (editBuffer.length() < 63) editBuffer += c;
+    }
+    drawKeyboard();
+    return;
+  }
+  if (inBox(x, y, {4, 170, 50, 28, "", C_AMBER})) {
+    if (editBuffer.length()) editBuffer.remove(editBuffer.length() - 1);
+    drawKeyboard();
+  } else if (inBox(x, y, {58, 170, 74, 28, "", C_BLUE})) {
+    if (inputTarget != INPUT_HUB_PORT && editBuffer.length() < 63) editBuffer += ' ';
+    drawKeyboard();
+  } else if (inBox(x, y, {136, 170, 54, 28, "", C_PANEL})) {
+    keyboardPage = (keyboardPage + 1) % 3;
+    drawKeyboard();
+  } else if (inBox(x, y, {194, 170, 54, 28, "", C_RED})) {
+    editBuffer = "";
+    drawKeyboard();
+  } else if (inBox(x, y, {252, 170, 64, 28, "", C_GREEN})) {
+    finishInput();
+  }
+}
+
+void handleSetupTouch(int x, int y) {
+  if (setupView == SETUP_INPUT) {
+    handleKeyboardTouch(x, y);
+    return;
+  }
+  if (setupView == SETUP_WIFI_LIST) {
+    if (inBox(x, y, {12, 50, 90, 28, "", C_BLUE})) {
+      scanWifiNetworks();
+      return;
+    }
+    if (inBox(x, y, {218, 50, 90, 28, "", C_AMBER})) {
+      setupView = SETUP_MAIN;
+      drawSettingsMain();
+      return;
+    }
+    for (int i = 0; i < scannedCount; i++) {
+      if (inBox(x, y, {14, 84 + i * 19, 292, 17, "", C_PANEL})) {
+        wifiSsid = scannedSsids[i];
+        setupView = SETUP_MAIN;
+        drawSettingsMain();
+        return;
+      }
+    }
+    return;
+  }
+
+  if (inBox(x, y, {12, 50, 92, 30, "", C_BLUE})) scanWifiNetworks();
+  else if (inBox(x, y, {114, 50, 92, 30, "", C_GREEN})) {
+    saveNetworkSettings();
+    connectWifi(false);
+  }
+  else if (inBox(x, y, {216, 50, 92, 30, "", C_PINK})) {
+    saveNetworkSettings();
+    drawSettingsMain();
+  } else if (inBox(x, y, {74, 86, 232, 24, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
+  else if (inBox(x, y, {74, 116, 232, 24, "", C_PANEL})) beginInput(INPUT_WIFI_PASSWORD, wifiPassword);
+  else if (inBox(x, y, {74, 146, 232, 24, "", C_PANEL})) beginInput(INPUT_HUB_BASE, hubBase);
+  else if (inBox(x, y, {74, 176, 90, 22, "", C_PANEL})) beginInput(INPUT_HUB_PORT, hubPort);
 }
 
 String request(const String& method, const String& path, const String& body = "", bool auth = true) {
@@ -539,17 +847,27 @@ int sampleMicLevel() {
 }
 
 void handleTouch(int x, int y) {
+  if (currentScreen == SCREEN_SETUP && setupView == SETUP_INPUT) {
+    handleSetupTouch(x, y);
+    return;
+  }
   if (y >= 204) {
-    if (x < 65) currentScreen = SCREEN_STATUS;
-    else if (x < 126) currentScreen = SCREEN_PAIR;
-    else if (x < 193) currentScreen = SCREEN_COMMANDS;
-    else if (x < 254) currentScreen = SCREEN_DEMO;
-    else currentScreen = SCREEN_MIC;
+    if (x < 54) currentScreen = SCREEN_STATUS;
+    else if (x < 106) currentScreen = SCREEN_PAIR;
+    else if (x < 158) currentScreen = SCREEN_COMMANDS;
+    else if (x < 210) currentScreen = SCREEN_DEMO;
+    else if (x < 262) currentScreen = SCREEN_MIC;
+    else {
+      currentScreen = SCREEN_SETUP;
+      setupView = SETUP_MAIN;
+    }
     redraw();
     return;
   }
 
-  if (currentScreen == SCREEN_PAIR) {
+  if (currentScreen == SCREEN_SETUP) {
+    handleSetupTouch(x, y);
+  } else if (currentScreen == SCREEN_PAIR) {
     int digit = -1;
     for (int row = 0; row < 3; row++) {
       for (int col = 0; col < 3; col++) {
@@ -630,17 +948,7 @@ void setupAudio() {
 }
 
 void setupWifi() {
-  Serial.printf("[wifi] connecting to %s\n", WISP_WIFI_SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WISP_WIFI_SSID, WISP_WIFI_PASSWORD);
-  lastStatus = "Connecting Wi-Fi...";
-  drawSplash(lastStatus);
-  uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
-    delay(250);
-  }
-  lastStatus = WiFi.isConnected() ? "Wi-Fi " + WiFi.localIP().toString() : "Wi-Fi failed. Check config.h.";
-  Serial.printf("[wifi] %s\n", lastStatus.c_str());
+  connectWifi(true);
 }
 
 void setup() {
@@ -652,6 +960,7 @@ void setup() {
   Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   prefs.begin("wisp", false);
   token = prefs.getString("token", "");
+  loadNetworkSettings();
 
   Serial.println("[display] init");
   tft.init();

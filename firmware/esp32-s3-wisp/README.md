@@ -12,6 +12,8 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
 - Show display cards, dashboards, pings, approval prompts, and command status.
 - Acknowledge completed, ignored, approved, rejected, or failed commands.
 - Use the touchscreen for pairing, navigation, local demos, and approvals.
+- Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL and port on
+  the touchscreen.
 - Play I2S chimes through the MAX98357 amp.
 - Show a live microphone level from the INMP441.
 - Trigger a Hub workflow from the touchscreen.
@@ -83,12 +85,16 @@ The display and touch controller share SPI clock, MOSI, and MISO.
 1. Install Arduino IDE or use `arduino-cli`.
 2. Install the ESP32 board package.
 3. Install these libraries:
-   - `TFT_eSPI`
+   - `Adafruit GFX Library`
+   - `Adafruit ILI9341`
    - `XPT2046_Touchscreen`
    - `ArduinoJson`
-4. Copy `nodespark_wisp_esp32/config.example.h` to
-   `nodespark_wisp_esp32/config.h`.
-5. Edit `config.h` with your Wi-Fi SSID, password, and NodeSparkHub URL.
+4. Optional: copy `nodespark_wisp_esp32/config.example.h` to
+   `nodespark_wisp_esp32/config.h` to prefill Wi-Fi and Hub defaults.
+   You can also configure Wi-Fi, Hub URL, and port directly from the Wisp
+   touchscreen after flashing.
+5. If you use `config.h`, edit it with your Wi-Fi SSID, password, and
+   NodeSparkHub URL.
 6. Compile for `ESP32S3 Dev Module`.
 7. Upload over USB-C.
 
@@ -107,13 +113,19 @@ arduino-cli upload \
 
 ## Pairing
 
-1. Start NodeSparkHub on the Mac.
-2. Start Hub Server.
-3. Open `Settings -> Hub Server -> Devices`.
-4. Generate a pairing code.
-5. On the ESP32 screen, open `Pair`.
-6. Enter the code on the touchscreen keypad.
-7. Tap `Pair`.
+1. Open `Set` on the Wisp touchscreen.
+2. Tap `Scan`, choose your Wi-Fi network, enter the password, then tap `Save`.
+3. Tap the URL field and enter the NodeSparkHub server base URL, such as
+   `http://192.168.1.57` or `https://your-domain.com`.
+4. Tap the port field and enter the Hub Server port, usually `8787`.
+5. Tap `Connect`.
+6. Start NodeSparkHub on the Mac.
+7. Start Hub Server.
+8. Open `Settings -> Hub Server -> Devices`.
+9. Generate a pairing code.
+10. On the ESP32 screen, open `Pair`.
+11. Enter the code on the touchscreen keypad.
+12. Tap `Pair`.
 
 After pairing, the ESP32-S3 Wisp appears in NodeSparkHub's connected device
 list as `ESP32-S3 / NodeSpark Wisp Touch`.
@@ -125,6 +137,7 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
 - `Cmds`: last command and approval actions.
 - `Demo`: local demo buttons and workflow trigger.
 - `Mic`: INMP441 level test and voice workflow placeholder.
+- `Set`: Wi-Fi scan, SSID/password entry, Hub URL, Hub port, Save, and Connect.
 
 ## Current Limitations
 
