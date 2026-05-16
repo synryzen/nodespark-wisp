@@ -32,6 +32,8 @@ Use 3.3V logic for all signal pins. Power the ILI9341 module from `3V3` first.
 Only use `5V` for the TFT VCC if your exact module requires it and its logic
 pins are documented as 3.3V safe.
 
+For a visual wiring diagram, see [WIRING_DIAGRAM.md](WIRING_DIAGRAM.md).
+
 ### ILI9341 TFT + XPT2046 Touch
 
 The display and touch controller share SPI clock, MOSI, and MISO.
@@ -133,4 +135,3 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
   Raw audio upload/transcription should be added after NodeSparkHub exposes a
   small-device audio upload endpoint.
 - Touch calibration values may need adjustment for your exact 2.8-inch module.
-
