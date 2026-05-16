@@ -240,6 +240,7 @@ int scannedCount = 0;
 int keyboardPage = 0;
 int audioVolumePercent = 90;
 int ampPinMode = 0;
+bool ampMuted = false;
 int lastMicLevel = 0;
 int lastMicBytes = 0;
 String lastSdStatus = "SD not checked";
@@ -718,17 +719,19 @@ void drawMic() {
   status += ampReady ? "ready" : "off";
   status += "   Mic ";
   status += micReady ? "ready" : "off";
+  if (ampMuted) status += "   muted";
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString(status, 16, 88, 2);
   tft.drawString("Volume " + String(audioVolumePercent) + "%", 16, 108, 2);
   tft.drawString("Pins " + ampPinModeLabel(), 16, 126, 2);
-  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 192, 2);
+  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 202, 2);
   drawButton({14, 146, 54, 28, "Vol-", C_PANEL});
   drawButton({76, 146, 54, 28, "Vol+", C_PANEL});
   drawButton({138, 146, 54, 28, "Pins", C_AMBER});
   drawButton({200, 146, 48, 28, "Tone", C_PINK});
   drawButton({256, 146, 50, 28, "Mic", C_BLUE});
-  drawButton({52, 176, 216, 24, "Voice Run", C_AMBER});
+  drawButton({14, 178, 84, 24, ampMuted ? "Unmute" : "Mute", C_PANEL});
+  drawButton({108, 178, 198, 24, "Voice Run", C_AMBER});
   drawTabs();
 }
 
@@ -1381,18 +1384,46 @@ void drawDashboard(const String& title, const String& label, const String& value
   drawTabs();
 }
 
+void writeAmpSilence(int durationMs = 160) {
+  if (!ampReady) return;
+  int16_t silence[128 * 2] = {0};
+  size_t written = 0;
+  int chunks = max(1, durationMs / 6);
+  for (int i = 0; i < chunks; i++) {
+    i2s_write(I2S_NUM_0, silence, sizeof(silence), &written, pdMS_TO_TICKS(80));
+    yield();
+  }
+  i2s_zero_dma_buffer(I2S_NUM_0);
+}
+
+void setAmpMuted(bool muted) {
+  ampMuted = muted;
+  if (ampMuted) {
+    writeAmpSilence(220);
+    lastStatus = "Amp muted.";
+  } else {
+    lastStatus = "Amp unmuted.";
+  }
+}
+
 void playChime(int kind = 0) {
   if (!ampReady) {
     lastStatus = "Amp not ready. Check MAX98357 wiring.";
     Serial.println("[audio] chime skipped: amp not ready");
     return;
   }
+  if (ampMuted) {
+    lastStatus = "Amp muted.";
+    writeAmpSilence(120);
+    return;
+  }
   const int sampleRate = 22050;
-  const int amplitude = map(audioVolumePercent, 0, 100, 0, 28000);
+  const int amplitude = map(audioVolumePercent, 0, 100, 0, 9000);
   if (amplitude <= 0) {
     lastStatus = "Volume is 0%.";
     return;
   }
+  writeAmpSilence(120);
   int freqs[3] = {523, kind == 1 ? 392 : 659, kind == 2 ? 330 : 784};
   Serial.printf("[audio] chime kind=%d volume=%d%% amplitude=%d\n", kind, audioVolumePercent, amplitude);
   for (int f : freqs) {
@@ -1416,9 +1447,7 @@ void playChime(int kind = 0) {
       yield();
     }
   }
-  int16_t silence[128 * 2] = {0};
-  size_t written = 0;
-  i2s_write(I2S_NUM_0, silence, sizeof(silence), &written, pdMS_TO_TICKS(100));
+  writeAmpSilence(300);
   lastStatus = "Tone played at " + String(audioVolumePercent) + "%.";
   appendSdLog("tone", "volume " + String(audioVolumePercent));
 }
@@ -1453,7 +1482,7 @@ bool configureAmpOutput() {
   esp_err_t ampPin = ampInstall == ESP_OK ? i2s_set_pin(I2S_NUM_0, &ampPins) : ampInstall;
   ampReady = ampInstall == ESP_OK && ampPin == ESP_OK;
   ampDriverInstalled = ampReady;
-  if (ampReady) i2s_zero_dma_buffer(I2S_NUM_0);
+  if (ampReady) writeAmpSilence(180);
   Serial.printf("[audio] amp mode=%d %s install=%d pin=%d pins bclk=%d lrclk=%d din=%d\n",
                 currentAmpPinIndex(),
                 map.label,
@@ -1866,18 +1895,23 @@ void handleTouch(int x, int y) {
       adjustAudioVolume(10);
       drawMic();
     } else if (inBox(x, y, {138, 146, 54, 28, "", C_AMBER})) {
+      ampMuted = false;
       cycleAmpPins();
       drawMic();
       playChime(0);
       drawMic();
     } else if (inBox(x, y, {200, 146, 48, 28, "", C_PINK})) {
+      ampMuted = false;
       playChime(0);
       drawMic();
     } else if (inBox(x, y, {256, 146, 50, 28, "", C_BLUE})) {
       int level = sampleMicLevel();
       drawMic();
       tft.fillRoundRect(18, 70, map(level, 0, 1023, 6, 284), 10, 5, C_GREEN);
-    } else if (inBox(x, y, {52, 176, 216, 24, "", C_AMBER})) {
+    } else if (inBox(x, y, {14, 178, 84, 24, "", C_PANEL})) {
+      setAmpMuted(!ampMuted);
+      drawMic();
+    } else if (inBox(x, y, {108, 178, 198, 24, "", C_AMBER})) {
       runWorkflow("ESP32-S3 Wisp voice button pressed. Audio upload support will be added next.");
     }
   }
