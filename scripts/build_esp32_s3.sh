@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SKETCH_DIR="${SKETCH_DIR:-firmware/esp32-s3-wisp/nodespark_wisp_esp32}"
-FQBN="${FQBN:-esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi}"
+FQBN="${FQBN:-esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB}"
 
 if [ ! -f "$SKETCH_DIR/config.h" ]; then
   cp "$SKETCH_DIR/config.example.h" "$SKETCH_DIR/config.h"
@@ -11,4 +11,3 @@ if [ ! -f "$SKETCH_DIR/config.h" ]; then
 fi
 
 arduino-cli compile --fqbn "$FQBN" "$SKETCH_DIR"
-

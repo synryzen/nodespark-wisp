@@ -176,7 +176,9 @@ bash scripts/build_esp32_s3.sh
 
 The ESP32-S3 firmware currently supports Wi-Fi Hub pairing, check-ins, Hub
 command polling, touch navigation, touchscreen approvals, local demo actions,
-workflow triggering, I2S chimes, and INMP441 mic level testing.
+workflow triggering, `Ask AI` through the NodeSparkHub `Wisp Assistant`
+workflow, Bluetooth Mobile Bridge commands from NodeSpark on iPhone, I2S
+chimes, and INMP441 mic level testing.
 
 ## Quick Install
 

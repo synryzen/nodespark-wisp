@@ -2,6 +2,10 @@
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
+#include <BLE2902.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <SPI.h>
@@ -46,6 +50,10 @@ static constexpr int PIN_MIC_SD = 18;
 static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr const char* APP_VERSION = "nodespark-wisp-esp32/0.1.0";
+static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_EVENT_UUID = "4E530003-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_STATE_UUID = "4E530004-4E53-5749-5350-000000000001";
 
 static constexpr int TL_DATUM = 0;
 static constexpr int ML_DATUM = 1;
@@ -147,6 +155,14 @@ uint32_t lastPollMs = 0;
 uint32_t lastWifiDrawMs = 0;
 bool ampReady = false;
 bool micReady = false;
+bool bleReady = false;
+bool touchDown = false;
+bool actionBusy = false;
+uint32_t lastTouchHandledMs = 0;
+BLECharacteristic* bleStateCharacteristic = nullptr;
+BLECharacteristic* bleEventCharacteristic = nullptr;
+char pendingBleRaw[512] = {0};
+volatile bool pendingBleCommand = false;
 
 struct Button {
   int16_t x;
@@ -156,6 +172,9 @@ struct Button {
   String label;
   uint16_t color;
 };
+
+void askAssistant(const String& text);
+void executeCommand(JsonObject command);
 
 static const uint16_t C_BG = ILI9341_BLACK;
 static const uint16_t C_PANEL = 0x1084;
@@ -310,6 +329,15 @@ void drawTabs() {
   for (auto& tab : tabs) drawButton(tab);
 }
 
+void drawBusyOverlay(const String& label) {
+  tft.fillRoundRect(76, 92, 168, 48, 10, C_PANEL);
+  tft.drawRoundRect(76, 92, 168, 48, 10, C_BLUE);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(ILI9341_WHITE, C_PANEL);
+  tft.drawString(label, 160, 116, 2);
+  tft.setTextDatum(TL_DATUM);
+}
+
 void drawWrapped(const String& text, int x, int y, int maxChars, int maxLines, uint16_t color = ILI9341_WHITE) {
   tft.setTextColor(color, C_BG);
   int line = 0;
@@ -411,10 +439,10 @@ void drawCommands() {
 void drawDemo() {
   drawHeader("Touch Demo Console", C_BLUE);
   drawButton({14, 56, 136, 42, "Ping Hub", C_GREEN});
-  drawButton({170, 56, 136, 42, "Local Card", C_BLUE});
-  drawButton({14, 112, 136, 42, "Run Workflow", C_AMBER});
+  drawButton({170, 56, 136, 42, "Ask AI", C_PINK});
+  drawButton({14, 112, 136, 42, "Workflow", C_AMBER});
   drawButton({170, 112, 136, 42, "Chime", C_PINK});
-  drawWrapped("Use this screen at a booth: touch actions prove Wisp is a real NodeSparkHub surface.", 14, 166, 38, 2, C_MUTED);
+  drawWrapped("Ask AI runs the Wisp Assistant workflow on NodeSparkHub and shows the response here.", 14, 166, 38, 2, C_MUTED);
   drawTabs();
 }
 
@@ -584,7 +612,10 @@ bool connectWifi(bool splash) {
   if (splash) drawSplash(lastStatus);
   else drawSettingsMain();
   uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) delay(250);
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    delay(250);
+    yield();
+  }
   lastStatus = WiFi.isConnected()
     ? "Wi-Fi " + WiFi.localIP().toString()
     : "Wi-Fi " + wifiStatusName(WiFi.status());
@@ -613,6 +644,7 @@ void scanWifiNetworks() {
   for (int i = 0; i < scannedCount; i++) {
     scannedSsids[i] = WiFi.SSID(i);
     scannedRssi[i] = WiFi.RSSI(i);
+    yield();
   }
   lastStatus = "Found " + String(scannedCount) + " networks";
   drawWifiList();
@@ -675,6 +707,31 @@ void handleKeyboardTouch(int x, int y) {
   }
 }
 
+void runGuardedAction(const String& label, void (*action)()) {
+  if (actionBusy) return;
+  actionBusy = true;
+  drawBusyOverlay(label);
+  yield();
+  action();
+  yield();
+  actionBusy = false;
+}
+
+void actionScanWifi() { scanWifiNetworks(); }
+void actionConnectWifi() {
+  saveNetworkSettings();
+  connectWifi(false);
+}
+void actionLoadDefaults() {
+  loadCompiledDefaults();
+  saveNetworkSettings();
+  drawSettingsMain();
+}
+void actionSaveSettings() {
+  saveNetworkSettings();
+  drawSettingsMain();
+}
+
 void handleSetupTouch(int x, int y) {
   if (setupView == SETUP_INPUT) {
     handleKeyboardTouch(x, y);
@@ -682,7 +739,7 @@ void handleSetupTouch(int x, int y) {
   }
   if (setupView == SETUP_WIFI_LIST) {
     if (inBox(x, y, {12, 50, 90, 28, "", C_BLUE})) {
-      scanWifiNetworks();
+      runGuardedAction("Scanning...", actionScanWifi);
       return;
     }
     if (inBox(x, y, {218, 50, 90, 28, "", C_AMBER})) {
@@ -701,18 +758,14 @@ void handleSetupTouch(int x, int y) {
     return;
   }
 
-  if (inBox(x, y, {4, 44, 78, 38, "", C_BLUE})) scanWifiNetworks();
+  if (inBox(x, y, {4, 44, 78, 38, "", C_BLUE})) runGuardedAction("Scanning...", actionScanWifi);
   else if (inBox(x, y, {82, 44, 78, 38, "", C_PANEL})) {
-    loadCompiledDefaults();
-    saveNetworkSettings();
-    drawSettingsMain();
+    runGuardedAction("Defaults...", actionLoadDefaults);
   } else if (inBox(x, y, {160, 44, 78, 38, "", C_GREEN})) {
-    saveNetworkSettings();
-    connectWifi(false);
+    runGuardedAction("Connecting...", actionConnectWifi);
   }
   else if (inBox(x, y, {238, 44, 78, 38, "", C_PINK})) {
-    saveNetworkSettings();
-    drawSettingsMain();
+    runGuardedAction("Saving...", actionSaveSettings);
   } else if (inBox(x, y, {70, 78, 240, 30, "", C_PANEL})) beginInput(INPUT_SSID, wifiSsid);
   else if (inBox(x, y, {70, 106, 240, 30, "", C_PANEL})) beginInput(INPUT_WIFI_PASSWORD, wifiPassword);
   else if (inBox(x, y, {70, 134, 240, 30, "", C_PANEL})) beginInput(INPUT_HUB_BASE, hubBase);
@@ -844,7 +897,9 @@ void playChime(int kind = 0) {
       int16_t stereo[2] = {sample, sample};
       size_t written = 0;
       i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &written, portMAX_DELAY);
+      if ((i % 128) == 0) yield();
     }
+    yield();
   }
 }
 
@@ -861,6 +916,11 @@ void executeCommand(JsonObject command) {
     lastCommand = title + ": " + body;
     playChime(0);
     ackCommand(id, "completed", "displayed");
+  } else if (kind == "assistant" || kind == "ask" || kind == "askai") {
+    String text = command["text"] | command["body"] | "Help me from NodeSpark Wisp.";
+    askAssistant(text);
+    lastCommand = "Assistant: " + text;
+    ackCommand(id, "completed", "assistant requested");
   } else if (kind == "card" || kind == "demo" || kind == "showcase" || kind == "alert" || kind == "ai") {
     String title = command["title"] | "NodeSparkHub Card";
     String body = command["body"] | command["text"] | "";
@@ -896,6 +956,106 @@ void executeCommand(JsonObject command) {
   }
 }
 
+String bleStateJson() {
+  String body = "{";
+  body += "\"type\":\"state\",";
+  body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
+  body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  body += "\"workflowName\":\"" + jsonEscape(defaultWorkflow) + "\",";
+  body += "\"pairedToHub\":" + String(token.length() ? "true" : "false") + ",";
+  body += "\"wifi\":" + String(WiFi.isConnected() ? "true" : "false") + ",";
+  body += "\"bridge\":\"wisp-esp32-ble\"}";
+  return body;
+}
+
+void bleNotifyState() {
+  if (!bleReady || !bleStateCharacteristic) return;
+  String state = bleStateJson();
+  bleStateCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+  bleStateCharacteristic->notify();
+}
+
+void bleNotifyEvent(const String& type, const String& detail) {
+  if (!bleReady || !bleEventCharacteristic) return;
+  String event = "{\"type\":\"" + jsonEscape(type) + "\",\"detail\":\"" + jsonEscape(detail) + "\"}";
+  bleEventCharacteristic->setValue((uint8_t*)event.c_str(), event.length());
+  bleEventCharacteristic->notify();
+}
+
+class WispBleCommandCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* characteristic) override {
+    String raw = characteristic->getValue().c_str();
+    raw.trim();
+    if (!raw.length()) return;
+    size_t n = min((size_t)raw.length(), sizeof(pendingBleRaw) - 1);
+    memcpy(pendingBleRaw, raw.c_str(), n);
+    pendingBleRaw[n] = '\0';
+    pendingBleCommand = true;
+  }
+};
+
+void processBleCommand() {
+  if (!pendingBleCommand || actionBusy) return;
+  char raw[sizeof(pendingBleRaw)];
+  noInterrupts();
+  strncpy(raw, pendingBleRaw, sizeof(raw));
+  raw[sizeof(raw) - 1] = '\0';
+  pendingBleCommand = false;
+  interrupts();
+
+  StaticJsonDocument<1024> doc;
+  DeserializationError err = deserializeJson(doc, raw);
+  if (err || !doc.is<JsonObject>()) {
+    bleNotifyEvent("error", "Bad BLE JSON");
+    return;
+  }
+  actionBusy = true;
+  JsonObject command = doc.as<JsonObject>();
+  command["source"] = "ios-ble-bridge";
+  executeCommand(command);
+  actionBusy = false;
+  bleNotifyEvent("command", command["type"] | "display");
+  bleNotifyState();
+}
+
+void setupBleBridge() {
+  BLEDevice::init("NodeSpark Wisp");
+  BLEServer* server = BLEDevice::createServer();
+  BLEService* service = server->createService(BLE_SERVICE_UUID);
+
+  BLECharacteristic* commandCharacteristic = service->createCharacteristic(
+    BLE_COMMAND_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  commandCharacteristic->setCallbacks(new WispBleCommandCallbacks());
+
+  bleEventCharacteristic = service->createCharacteristic(
+    BLE_EVENT_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  bleEventCharacteristic->addDescriptor(new BLE2902());
+
+  bleStateCharacteristic = service->createCharacteristic(
+    BLE_STATE_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  bleStateCharacteristic->addDescriptor(new BLE2902());
+
+  String state = bleStateJson();
+  bleEventCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+  bleStateCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+
+  service->start();
+  BLEAdvertising* advertising = BLEDevice::getAdvertising();
+  advertising->addServiceUUID(BLE_SERVICE_UUID);
+  advertising->setScanResponse(true);
+  advertising->setMinPreferred(0x06);
+  advertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+  bleReady = true;
+  Serial.println("[ble] Wisp Mobile Bridge advertising");
+}
+
 void pollCommands() {
   if (!token.length()) return;
   String payload = request("GET", "/devices/" + deviceId + "/commands/poll?limit=4");
@@ -921,8 +1081,27 @@ void runWorkflow(const String& text) {
   body += "\"text\":\"" + jsonEscape(text) + "\",";
   body += "\"input\":\"" + jsonEscape(text) + "\"}";
   String payload = request("POST", path, body);
-  lastStatus = payload.length() ? "Workflow sent to Hub." : "Workflow failed.";
-  redraw();
+  if (payload.length()) {
+    StaticJsonDocument<2048> doc;
+    String output;
+    if (!deserializeJson(doc, payload)) {
+      output = doc["output"].as<String>();
+      if (!output.length()) output = doc["result"].as<String>();
+      if (!output.length()) output = doc["message"].as<String>();
+      if (!output.length()) output = doc["status"].as<String>();
+    }
+    lastStatus = "Workflow sent to Hub.";
+    if (output.length()) showCard("Wisp Assistant", output.substring(0, 180), C_PINK);
+    else redraw();
+  } else {
+    lastStatus = "Workflow failed.";
+    redraw();
+  }
+}
+
+void askAssistant(const String& text) {
+  showCard("Wisp Assistant", "Sending to NodeSparkHub AI...", C_PINK);
+  runWorkflow(text);
 }
 
 int sampleMicLevel() {
@@ -990,10 +1169,9 @@ void handleTouch(int x, int y) {
       showCard("Ping", "Local touch ping. Hub polling is active.", C_GREEN);
       playChime(0);
     } else if (inBox(x, y, {170, 56, 136, 42, "", C_BLUE})) {
-      showCard("NodeSparkHub", "ESP32-S3 Wisp touch display is alive.", C_BLUE);
-      playChime(0);
+      runGuardedAction("Asking AI...", [](){ askAssistant("Give a short exciting demo of what NodeSpark Wisp can do."); });
     } else if (inBox(x, y, {14, 112, 136, 42, "", C_AMBER})) {
-      runWorkflow("ESP32-S3 Wisp touchscreen requested a workflow.");
+      runGuardedAction("Workflow...", [](){ runWorkflow("ESP32-S3 Wisp touchscreen requested a workflow."); });
     } else if (inBox(x, y, {170, 112, 136, 42, "", C_PINK})) {
       playChime(2);
     }
@@ -1072,6 +1250,7 @@ void setup() {
 
   setupAudio();
   Serial.printf("[audio] amp=%s mic=%s\n", ampReady ? "ready" : "off", micReady ? "ready" : "off");
+  setupBleBridge();
   setupWifi();
   redraw();
   playChime(0);
@@ -1081,21 +1260,30 @@ void setup() {
 void loop() {
   int x, y;
   if (touched(x, y)) {
-    handleTouch(x, y);
-    delay(220);
+    if (!touchDown && !actionBusy && millis() - lastTouchHandledMs > 260) {
+      touchDown = true;
+      lastTouchHandledMs = millis();
+      handleTouch(x, y);
+    }
+  } else {
+    touchDown = false;
   }
 
-  if (WiFi.isConnected() && token.length() && millis() - lastCheckinMs > 60000) {
+  processBleCommand();
+
+  if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastCheckinMs > 60000) {
     lastCheckinMs = millis();
     checkin();
     if (currentScreen == SCREEN_STATUS) redraw();
   }
-  if (WiFi.isConnected() && token.length() && millis() - lastPollMs > 2000) {
+  if (!actionBusy && WiFi.isConnected() && token.length() && millis() - lastPollMs > 2000) {
     lastPollMs = millis();
     pollCommands();
+    bleNotifyState();
   }
   if (millis() - lastWifiDrawMs > 10000 && currentScreen == SCREEN_STATUS) {
     lastWifiDrawMs = millis();
     drawStatus();
   }
+  yield();
 }

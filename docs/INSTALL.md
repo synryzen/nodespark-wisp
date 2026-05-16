@@ -159,9 +159,13 @@ Upload with Arduino IDE or:
 ```bash
 arduino-cli upload \
   -p /dev/cu.usbmodemXXXX \
-  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi \
+  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB \
   firmware/esp32-s3-wisp/nodespark_wisp_esp32
 ```
 
 Pair from the ESP32 touch screen by opening the `Pair` tab, entering the code
 from NodeSparkHub `Settings -> Hub Server -> Devices`, and tapping `Pair`.
+
+The ESP32-S3 build uses the 16 MB / 3 MB app partition because Bluetooth
+Mobile Bridge, HTTPS Hub access, touchscreen UI, and display graphics no longer
+fit in the default 1.2 MB app partition.

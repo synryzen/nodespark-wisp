@@ -14,6 +14,10 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
 - Use the touchscreen for pairing, navigation, local demos, and approvals.
 - Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL plus optional
   port on the touchscreen.
+- Advertise the same Wisp Mobile Bridge Bluetooth LE service used by the
+  Raspberry Pi build, so NodeSpark on iPhone can send direct BLE commands.
+- Use `Ask AI` to send a prompt into the NodeSparkHub `Wisp Assistant`
+  workflow and show the Hub response.
 - Play I2S chimes through the MAX98357 amp.
 - Show a live microphone level from the INMP441.
 - Trigger a Hub workflow from the touchscreen.
@@ -95,19 +99,19 @@ The display and touch controller share SPI clock, MOSI, and MISO.
    touchscreen after flashing.
 5. If you use `config.h`, edit it with your Wi-Fi SSID, password, and
    NodeSparkHub URL.
-6. Compile for `ESP32S3 Dev Module`.
+6. Compile for `ESP32S3 Dev Module` using a 16 MB flash / 3 MB app partition.
 7. Upload over USB-C.
 
 Example with `arduino-cli`:
 
 ```bash
 arduino-cli compile \
-  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi \
+  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB \
   firmware/esp32-s3-wisp/nodespark_wisp_esp32
 
 arduino-cli upload \
   -p /dev/cu.usbmodemXXXX \
-  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi \
+  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB \
   firmware/esp32-s3-wisp/nodespark_wisp_esp32
 ```
 
@@ -138,12 +142,30 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
 - `Status`: Wi-Fi, Hub, device ID, pairing status.
 - `Pair`: touchscreen pairing-code keypad.
 - `Cmds`: last command and approval actions.
-- `Demo`: local demo buttons and workflow trigger.
+- `Demo`: ping, `Ask AI`, workflow trigger, and chime demo.
 - `Mic`: INMP441 level test and voice workflow placeholder.
 - `Set`: Wi-Fi scan, SSID/password entry, Hub URL, optional Hub port, Save, and Connect.
 
+## Bluetooth Mobile Bridge
+
+The ESP32-S3 build advertises the same BLE GATT service as the Raspberry Pi
+Wisp:
+
+- Service: `4E530001-4E53-5749-5350-000000000001`
+- Command characteristic: `4E530002-4E53-5749-5350-000000000001`
+- Event characteristic: `4E530003-4E53-5749-5350-000000000001`
+- State characteristic: `4E530004-4E53-5749-5350-000000000001`
+
+Open NodeSpark on iPhone, go to `Settings -> Hub Pairing & Control -> Wisp
+Mobile Bridge`, scan for `NodeSpark Wisp`, and connect. The iPhone can send
+compact JSON commands such as `ping`, `card`, and `dashboard` over BLE. The
+firmware processes BLE commands from the main loop so Bluetooth writes do not
+interrupt display or network work.
+
 ## Current Limitations
 
+- BLE + HTTPS + display support requires the 16 MB / 3 MB app partition shown
+  in the build commands above.
 - The MAX98357 path currently plays chimes. Full text-to-speech needs either a
   Hub audio endpoint, an onboard speech synthesis library, or iPhone bridge
   forwarding.
