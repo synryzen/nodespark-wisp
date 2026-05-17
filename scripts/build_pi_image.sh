@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKDIR="${WISP_IMAGE_WORKDIR:-$HOME/.cache/nodespark-wisp/pi-gen}"
 PI_GEN_REPO="${WISP_PI_GEN_REPO:-https://github.com/RPi-Distro/pi-gen.git}"
-PI_GEN_BRANCH="${WISP_PI_GEN_BRANCH:-master}"
+PI_GEN_BRANCH="${WISP_PI_GEN_BRANCH:-arm64}"
 IMAGE_NAME="${WISP_IMAGE_NAME:-nodespark-wisp}"
 RELEASE="${WISP_IMAGE_RELEASE:-trixie}"
 

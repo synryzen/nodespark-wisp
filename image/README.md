@@ -1,7 +1,7 @@
 # NodeSpark Wisp Raspberry Pi OS Image
 
 This folder contains the build recipe for a downloadable NodeSpark Wisp factory
-image. The default image is based on Raspberry Pi OS Lite 32-bit and is intended for
+image. The default image is based on Raspberry Pi OS Lite 64-bit and is intended for
 Raspberry Pi Zero 2 W plus the PiSugar Whisplay HAT.
 
 ## What the image includes
@@ -39,7 +39,7 @@ The output appears under:
 Useful overrides:
 
 ```bash
-WISP_PI_GEN_BRANCH=arm64 bash scripts/build_pi_image.sh   # optional 64-bit local build
+WISP_PI_GEN_BRANCH=master bash scripts/build_pi_image.sh  # optional 32-bit local build
 WISP_IMAGE_WORKDIR=/fast/linux/disk/nodespark-wisp-image bash scripts/build_pi_image.sh
 ```
 
