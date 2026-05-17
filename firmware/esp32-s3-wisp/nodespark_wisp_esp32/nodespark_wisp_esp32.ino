@@ -2112,10 +2112,32 @@ int sampleMicLevel() {
     Serial.println("[audio] mic read returned no samples");
     return 0;
   }
-  uint64_t sum = 0;
-  for (int i = 0; i < count; i++) sum += abs(samples[i] >> 14);
-  lastMicLevel = constrain((int)(sum / count), 0, 1023);
-  Serial.printf("[audio] mic level=%d bytes=%d count=%d\n", lastMicLevel, lastMicBytes, count);
+  int32_t minSample = INT32_MAX;
+  int32_t maxSample = INT32_MIN;
+  int64_t sum = 0;
+  for (int i = 0; i < count; i++) {
+    int32_t sample = samples[i] >> 8;  // INMP441 sends 24-bit samples left-aligned in 32-bit words.
+    minSample = min(minSample, sample);
+    maxSample = max(maxSample, sample);
+    sum += sample;
+  }
+  int32_t mean = (int32_t)(sum / count);
+  uint64_t activity = 0;
+  for (int i = 0; i < count; i++) {
+    int32_t sample = samples[i] >> 8;
+    activity += abs(sample - mean);
+  }
+  int32_t peakToPeak = maxSample - minSample;
+  int rmsLike = (int)(activity / count / 2048);
+  int peakLike = peakToPeak / 8192;
+  lastMicLevel = constrain(max(rmsLike, peakLike), 0, 1023);
+  Serial.printf("[audio] mic level=%d bytes=%d count=%d min=%ld max=%ld mean=%ld\n",
+                lastMicLevel,
+                lastMicBytes,
+                count,
+                (long)minSample,
+                (long)maxSample,
+                (long)mean);
   return lastMicLevel;
 }
 
@@ -2221,7 +2243,8 @@ void setupAudio() {
   micConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
   micConfig.sample_rate = 16000;
   micConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
-  micConfig.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
+  // INMP441 L/R tied to GND outputs on the left channel.
+  micConfig.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
   micConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
   micConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
   micConfig.dma_buf_count = 4;
