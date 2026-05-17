@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -68,6 +69,37 @@ class AudioIO:
                 pass
         cmd = ["espeak-ng", "-v", voice, "-s", str(rate), text[:900]]
         subprocess.run(cmd, check=False)
+
+    def set_volume(self, percent: int) -> int:
+        percent = max(0, min(100, int(percent)))
+        if not shutil.which("amixer"):
+            return percent
+
+        # Keep digital playback open, then adjust the Whisplay speaker amp.
+        if self.card:
+            subprocess.run(["amixer", "-q", "-c", self.card, "sset", "Playback", "100%"], check=False)
+            subprocess.run(["amixer", "-q", "-c", self.card, "sset", "Speaker", f"{percent}%"], check=False)
+        else:
+            subprocess.run(["amixer", "-q", "sset", "Master", f"{percent}%"], check=False)
+        return self.get_volume(default=percent)
+
+    def get_volume(self, default: int = 80) -> int:
+        if not shutil.which("amixer"):
+            return default
+        commands = []
+        if self.card:
+            commands.append(["amixer", "-c", self.card, "sget", "Speaker"])
+        commands.append(["amixer", "sget", "Master"])
+        for cmd in commands:
+            try:
+                out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=3)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            matches = re.findall(r"\[(\d{1,3})%\]", out)
+            if matches:
+                values = [max(0, min(100, int(value))) for value in matches]
+                return round(sum(values) / len(values))
+        return default
 
     def chime(self, kind: str = "success") -> None:
         if not self.enabled:

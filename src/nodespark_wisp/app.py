@@ -237,6 +237,23 @@ class NodeSparkWispApp:
                 if self.cfg.speech.enabled:
                     self.audio.speak(text, self.cfg.speech.voice, self.cfg.speech.rate)
                 self.hub.ack_command(command_id, "completed", "spoken")
+            elif kind in {"volume", "setvolume", "speakerVolume", "speakervolume"}:
+                raw = command.get("percent", command.get("volume", command.get("level", command.get("value", 80))))
+                try:
+                    requested = int(float(raw))
+                except (TypeError, ValueError):
+                    requested = 80
+                actual = self.audio.set_volume(requested)
+                self.display.show_dashboard(
+                    "Speaker Volume",
+                    "Whisplay",
+                    f"{actual}%",
+                    ["Speaker mixer updated", "Playback path ready", "Use Hub controls anytime"],
+                    self._rgb(command, (120, 90, 255)),
+                    self._status_footer(force=True),
+                )
+                self._chime("success")
+                self.hub.ack_command(command_id, "completed", f"volume={actual}%")
             elif kind in {"led", "rgb", "setled"}:
                 rgb = self._rgb(command, (60, 130, 255))
                 self.display.set_rgb(*rgb)

@@ -101,6 +101,7 @@ Current Wisp capabilities:
 - Select the active Hub workflow from NodeSparkHub and save it on the ESP32 Wisp.
 - Speak text from Hub through the onboard speaker when `espeak-ng` is installed.
 - Play startup, listening, success, and error chimes when audio is available.
+- Adjust Whisplay speaker volume remotely from NodeSparkHub.
 - Set the RGB LED color from Hub commands.
 - Run a selected Hub workflow from the physical button.
 - Run a selected Hub workflow from the ESP32-S3 touch UI.
@@ -272,6 +273,7 @@ Supported Wisp command types:
 - `dashboard`: show a compact metric dashboard with list items.
 - `graphics` or `icons`: show a visual icon grid.
 - `speak`: speak text through the Wisp speaker.
+- `volume`: set Whisplay speaker volume with `percent`, `volume`, or `level`.
 - `led`: set the RGB LED color.
 - `ping`: show a live connectivity ping.
 - `logo`, `splash`, or `startup`: show the branded NodeSpark mascot screen.
