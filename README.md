@@ -195,7 +195,7 @@ Raspberry Pi Wisp for reliable iPhone BLE bridge demos today.
 ### Downloadable Raspberry Pi Image
 
 The easiest path for customers is the custom NodeSpark Wisp Raspberry Pi OS
-image. It is built from Raspberry Pi OS Lite 64-bit with Wisp preinstalled and
+image. It is built from Raspberry Pi OS Lite with Wisp preinstalled and
 enabled as a boot service.
 
 Image build recipe:
