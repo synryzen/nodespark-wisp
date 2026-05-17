@@ -35,6 +35,7 @@ class NodeSparkWispApp:
         self.events: queue.Queue[str] = queue.Queue()
         self.running = True
         self.selected_index = 0
+        self.workflow_names = self._configured_workflows()
         self._pressed_at = 0.0
         self._showcase_index = 0
         self._last_status_footer = ""
@@ -122,12 +123,36 @@ class NodeSparkWispApp:
         self.display.cleanup()
 
     def current_workflow(self) -> str:
-        favorites = self.cfg.hub.favorite_workflows or [self.cfg.hub.default_workflow]
-        return favorites[self.selected_index % len(favorites)]
+        workflows = self.workflow_names or self._configured_workflows()
+        return workflows[self.selected_index % len(workflows)]
+
+    def _configured_workflows(self) -> list[str]:
+        workflows = [name.strip() for name in self.cfg.hub.favorite_workflows if name.strip()]
+        default = self.cfg.hub.default_workflow.strip()
+        if default and default not in workflows:
+            workflows.insert(0, default)
+        return workflows or ["Wisp Assistant"]
+
+    def _sync_workflows(self) -> None:
+        try:
+            names = [name.strip() for name in self.hub.list_workflows() if str(name).strip()]
+        except Exception as exc:
+            print(f"[workflows] sync failed: {exc}")
+            return
+        if not names:
+            return
+        current = self.current_workflow()
+        self.workflow_names = names
+        if current in self.workflow_names:
+            self.selected_index = self.workflow_names.index(current)
+        else:
+            self.selected_index = 0
+        print(f"[workflows] synced {len(self.workflow_names)} from Hub: {', '.join(self.workflow_names[:8])}")
 
     def _checkin(self) -> None:
         try:
             health = self.hub.health()
+            self._sync_workflows()
             checkin = self.hub.checkin()
             caps = ", ".join(health.get("capabilities", [])[:3])
             self.display.show("Connected", f"{self.current_workflow()}\nDevice {checkin.get('deviceId')}", caps, (45, 160, 255), self._status_footer(force=True))
@@ -274,6 +299,20 @@ class NodeSparkWispApp:
                 response = self.hub.run_workflow(workflow, payload)
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", f"runId={response.get('runId', '')}")
+            elif kind in {"workflows", "workflowlist", "listworkflows"}:
+                self._sync_workflows()
+                items = self.workflow_names[:5]
+                selected = self.current_workflow()
+                self.display.show_dashboard(
+                    "Hub Workflows",
+                    f"{len(self.workflow_names)} synced",
+                    selected[:12],
+                    items,
+                    self._rgb(command, (80, 210, 130)),
+                    self._status_footer(force=True),
+                )
+                self._chime("success")
+                self.hub.ack_command(command_id, "completed", ",".join(self.workflow_names[:10]))
             elif kind in {"assistant", "ask", "askai"}:
                 text = self._command_text(command) or "Help me from NodeSpark Wisp."
                 self._animate("Wisp Assistant", "Asking NodeSparkHub AI", self._rgb(command, (120, 90, 255)), seconds=0.7)
@@ -296,10 +335,10 @@ class NodeSparkWispApp:
                     self.display.show_card("Wisp Assistant", "Direct AI endpoint was unavailable, so the request was sent to a Hub workflow.", "Fallback workflow", "ai", "warning", self._rgb(command, (255, 180, 50)), self._status_footer(force=True))
                     self.hub.ack_command(command_id, "completed", f"workflowRun={response.get('runId', '')}")
             elif kind in {"selectworkflow", "select"}:
-                name = str(command.get("workflowName") or "")
-                favorites = self.cfg.hub.favorite_workflows or [self.cfg.hub.default_workflow]
-                if name in favorites:
-                    self.selected_index = favorites.index(name)
+                self._sync_workflows()
+                name = str(command.get("workflowName") or command.get("body") or command.get("text") or "")
+                if name in self.workflow_names:
+                    self.selected_index = self.workflow_names.index(name)
                 self.display.show("Workflow", self.current_workflow(), "Selected by Hub", (80, 210, 130), self._status_footer())
                 self.hub.ack_command(command_id, "completed", self.current_workflow())
             elif kind == "ping":
@@ -350,9 +389,10 @@ class NodeSparkWispApp:
             self.display.show("Error", str(exc)[:180], self.current_workflow(), (255, 70, 70), self._status_footer())
 
     def _cycle_workflow(self) -> None:
-        favorites = self.cfg.hub.favorite_workflows or [self.cfg.hub.default_workflow]
-        self.selected_index = (self.selected_index + 1) % len(favorites)
-        self.display.show("Workflow", self.current_workflow(), "Hold button to run", (80, 210, 130), self._status_footer())
+        self._sync_workflows()
+        workflows = self.workflow_names or self._configured_workflows()
+        self.selected_index = (self.selected_index + 1) % len(workflows)
+        self.display.show("Workflow", self.current_workflow(), f"{len(workflows)} synced from Hub", (80, 210, 130), self._status_footer())
 
     def _resolve_approval(self, approved: bool) -> None:
         command = self.pending_approval

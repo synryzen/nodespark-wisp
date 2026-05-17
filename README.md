@@ -99,6 +99,8 @@ Current Wisp capabilities:
 - Show device-health screens for Wi-Fi, Hub pairing, battery/temperature when
   available, SD status, and audio readiness.
 - Select the active Hub workflow from NodeSparkHub and save it on the ESP32 Wisp.
+- Sync live NodeSparkHub workflows onto the Wisp so the device cycles real Hub
+  workflows instead of only static config favorites.
 - Speak text from Hub through the onboard speaker when `espeak-ng` is installed.
 - Play startup, listening, success, and error chimes when audio is available.
 - Adjust Whisplay speaker volume remotely from NodeSparkHub.
@@ -281,6 +283,7 @@ Supported Wisp command types:
 - `demo`: run the sales-showcase sequence.
 - `runWorkflow`: ask the device to start another Hub workflow.
 - `selectWorkflow`: change the selected favorite workflow.
+- `workflows`: show the currently synced Hub workflow list on the device.
 
 Raw rich-card example:
 
