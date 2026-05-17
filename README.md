@@ -22,6 +22,8 @@ Website:
 https://synryzen.github.io/nodespark-wisp/
 ```
 
+![NodeSpark Wisp running on a PiSugar Whisplay HAT](docs/assets/wisp-whisplay-startup.jpg)
+
 ## What It Is For
 
 NodeSpark Wisp is for showing, testing, and building physical workflow

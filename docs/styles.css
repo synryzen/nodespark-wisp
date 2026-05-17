@@ -294,6 +294,26 @@ h3 {
   gap: 14px;
 }
 
+.hardware-photo {
+  margin: 28px 0 0;
+}
+
+.hardware-photo img {
+  display: block;
+  width: min(100%, 520px);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px var(--shadow);
+}
+
+.hardware-photo figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .hardware-cards article {
   padding: 18px;
   border: 1px solid var(--line);
