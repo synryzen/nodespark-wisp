@@ -136,23 +136,33 @@
       <section class="section install" id="install" aria-labelledby="install-title">
         <div class="section-heading">
           <p class="section-kicker">Install</p>
-          <h2 id="install-title">Clone, install, pair, and start the service.</h2>
+          <h2 id="install-title">Flash the Wisp image, or install manually.</h2>
         </div>
         <div class="steps">
           <article>
-            <h3>1. Install on the Pi</h3>
-            <pre><code>git clone https://github.com/synryzen/nodespark-wisp.git
-cd nodespark-wisp
-bash scripts/install_pi.sh</code></pre>
+            <h3>1. Flash the Wisp image</h3>
+            <pre><code>Raspberry Pi Imager -> Use custom
+Choose nodespark-wisp.img.xz
+Set Wi-Fi + user settings
+Flash microSD</code></pre>
           </article>
           <article>
             <h3>2. Pair with NodeSparkHub</h3>
-            <pre><code>/opt/nodespark-wisp/scripts/pair_device.sh 123456</code></pre>
+            <pre><code>Open Hub Server -> Devices
+Generate pairing code
+Pair Wisp from SSH or QR/setup screen</code></pre>
           </article>
           <article>
-            <h3>3. Start the service</h3>
-            <pre><code>sudo systemctl enable --now nodespark-wisp
-journalctl -u nodespark-wisp -f</code></pre>
+            <h3>3. Build the image</h3>
+            <pre><code>bash scripts/build_pi_image.sh</code></pre>
+          </article>
+        </div>
+        <div class="steps esp32-steps">
+          <article>
+            <h3>Manual Pi Install</h3>
+            <pre><code>git clone https://github.com/synryzen/nodespark-wisp.git
+cd nodespark-wisp
+bash scripts/install_pi.sh</code></pre>
           </article>
         </div>
         <div class="steps esp32-steps">

@@ -16,7 +16,40 @@ NodeSpark Wisp is not feature-tiered on the device. The subscription activates
 the NodeSparkHub runtime used for pairing, secure commands, workflow execution,
 automation history, and iPhone Mobile Bridge forwarding.
 
-## 1. Install On The Pi
+## Option A: Flash The NodeSpark Wisp Raspberry Pi Image
+
+The customer-friendly install path is the custom NodeSpark Wisp Raspberry Pi OS
+image. It boots with Wisp already installed and enabled.
+
+To use it:
+
+1. Download the latest NodeSpark Wisp `.img.xz` image from GitHub Releases or a
+   build artifact.
+2. Open Raspberry Pi Imager.
+3. Choose **Use custom** and select the Wisp image.
+4. In Imager settings, set Wi-Fi, username/password, locale, and optional SSH.
+5. Flash the microSD card.
+6. Optional: after flashing, open the boot partition, copy
+   `nodespark-wisp.toml.example` to `nodespark-wisp.toml`, and set the Hub URL.
+7. Boot the Pi with the Whisplay HAT attached.
+8. Pair with NodeSparkHub.
+
+The image intentionally does not ship with a default username/password. Use
+Raspberry Pi Imager to set credentials before flashing.
+
+Build recipe for maintainers:
+
+```bash
+bash scripts/build_pi_image.sh
+```
+
+Details are in:
+
+```text
+image/README.md
+```
+
+## Option B: Manual Install On The Pi
 
 ```bash
 sudo apt-get update
@@ -28,7 +61,7 @@ bash scripts/install_pi.sh
 
 The installer copies the app to `/opt/nodespark-wisp`, creates a Python virtual environment, installs the systemd service, and creates `/etc/nodespark-wisp/config.toml`.
 
-## 2. Configure Hub URL
+## Configure Hub URL
 
 In NodeSparkHub on the Mac, open `Settings -> Hub Server` and copy the LAN URL. On the Pi:
 
@@ -45,7 +78,7 @@ default_workflow = "Wisp Assistant"
 favorite_workflows = ["Wisp Assistant", "Quick Note", "Home Status"]
 ```
 
-## 3. Pair With NodeSparkHub
+## Pair With NodeSparkHub
 
 In NodeSparkHub, generate a pairing code. Then run:
 
@@ -55,14 +88,14 @@ In NodeSparkHub, generate a pairing code. Then run:
 
 Open `Settings -> Hub Server -> Devices` in NodeSparkHub. You should see `NodeSpark Wisp`.
 
-## 4. Start The Service
+## Start The Service
 
 ```bash
 sudo systemctl enable --now nodespark-wisp
 journalctl -u nodespark-wisp -f
 ```
 
-## 5. Test Commands
+## Test Commands
 
 From the Mac running NodeSparkHub:
 

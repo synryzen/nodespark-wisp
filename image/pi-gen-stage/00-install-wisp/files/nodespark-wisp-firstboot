@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG=/var/log/nodespark-wisp-firstboot.log
+CONFIG_DIR=/etc/nodespark-wisp
+CONFIG_FILE="$CONFIG_DIR/config.toml"
+
+exec >>"$LOG" 2>&1
+echo "[$(date -Iseconds)] NodeSpark Wisp first boot helper"
+
+mkdir -p "$CONFIG_DIR"
+
+BOOT_CONFIG=""
+for candidate in \
+  /boot/firmware/nodespark-wisp.toml \
+  /boot/nodespark-wisp.toml
+do
+  if [ -s "$candidate" ]; then
+    BOOT_CONFIG="$candidate"
+    break
+  fi
+done
+
+if [ -n "$BOOT_CONFIG" ]; then
+  echo "Applying boot config from $BOOT_CONFIG"
+  install -m 0640 -o root -g nodespark "$BOOT_CONFIG" "$CONFIG_FILE"
+else
+  echo "No boot config supplied; using existing $CONFIG_FILE"
+fi
+
+if [ -d /var/lib/nodespark-wisp ]; then
+  chown -R nodespark:nodespark /var/lib/nodespark-wisp
+fi
+
+if command -v raspi-config >/dev/null 2>&1; then
+  raspi-config nonint do_spi 0 || true
+  raspi-config nonint do_i2c 0 || true
+fi
+
+echo "NodeSpark Wisp first boot helper complete"
+

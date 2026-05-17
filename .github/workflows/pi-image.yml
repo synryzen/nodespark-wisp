@@ -1,0 +1,53 @@
+name: Build Raspberry Pi Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional GitHub Release tag to publish the image to, for example wisp-os-v0.1.0"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coreutils quilt parted qemu-user-binfmt debootstrap zerofree zip \
+            dosfstools e2fsprogs libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc \
+            gpg pigz xxd arch-test bmap-tools kmod
+
+      - name: Build Wisp Raspberry Pi OS image
+        env:
+          WISP_IMAGE_USE_DOCKER: "0"
+          WISP_IMAGE_WORKDIR: /tmp/nodespark-wisp-pi-gen
+        run: bash scripts/build_pi_image.sh
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodespark-wisp-raspberry-pi-os
+          path: /tmp/nodespark-wisp-pi-gen/deploy/nodespark-wisp*.img.xz
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "NodeSpark Wisp Raspberry Pi OS $RELEASE_TAG" \
+              --notes "Prebuilt NodeSpark Wisp Raspberry Pi OS image. Flash with Raspberry Pi Imager, set Wi-Fi/user settings, boot, and pair with NodeSparkHub."
+          fi
+          gh release upload "$RELEASE_TAG" /tmp/nodespark-wisp-pi-gen/deploy/nodespark-wisp*.img.xz --clobber

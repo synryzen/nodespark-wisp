@@ -192,6 +192,41 @@ Raspberry Pi Wisp for reliable iPhone BLE bridge demos today.
 
 ## Quick Install
 
+### Downloadable Raspberry Pi Image
+
+The easiest path for customers is the custom NodeSpark Wisp Raspberry Pi OS
+image. It is built from Raspberry Pi OS Lite 64-bit with Wisp preinstalled and
+enabled as a boot service.
+
+Image build recipe:
+
+```text
+image/README.md
+```
+
+Build the image from this repo on Linux or Docker:
+
+```bash
+bash scripts/build_pi_image.sh
+```
+
+Then users can:
+
+1. Open Raspberry Pi Imager.
+2. Choose **Use custom** and select the NodeSpark Wisp `.img.xz`.
+3. Set Wi-Fi, username/password, locale, and SSH in Imager.
+4. Flash the microSD card.
+5. Optional: copy `nodespark-wisp.toml.example` to `nodespark-wisp.toml` on the
+   boot partition and set the Hub URL.
+6. Boot the Pi with the Whisplay HAT attached.
+7. Pair from NodeSparkHub.
+
+The factory image does not include a shared default login password. That keeps
+public downloads safer while still making the Wisp software start
+automatically.
+
+### Manual Pi Install
+
 On the Raspberry Pi:
 
 ```bash

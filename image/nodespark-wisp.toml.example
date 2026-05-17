@@ -1,0 +1,57 @@
+[hub]
+# LAN URL from NodeSparkHub Settings, usually http://<Mac-IP>:8787.
+# For a Cloudflare Tunnel or other remote Hub URL, use https://your-domain.example.
+base_url = ""
+
+# Default workflow used when holding the Whisplay button.
+default_workflow = "Wisp Assistant"
+
+# Optional local fallback list. Wisp syncs live workflow names from Hub once it
+# connects, so these are only used while Hub is offline.
+favorite_workflows = ["Wisp Assistant", "Quick Note", "Home Status"]
+
+[device]
+name = "NodeSpark Wisp"
+checkin_interval_seconds = 60
+command_poll_interval_seconds = 2
+
+[display]
+enabled = true
+backlight = 65
+driver_path = "/opt/Whisplay/Driver"
+spi_speed_hz = 48000000
+startup_logo_enabled = true
+startup_logo_path = ""
+show_status_bar = true
+animation_enabled = true
+
+[audio]
+enabled = true
+record_seconds = 5
+sample_rate = 16000
+channels = 1
+format = "S16_LE"
+transcription_provider = "none"
+openai_model = "gpt-4o-mini-transcribe"
+openai_api_key = ""
+vosk_model_path = "/opt/nodespark-wisp/models/vosk"
+
+[speech]
+enabled = true
+voice = "en-us"
+rate = 165
+
+[sound]
+enabled = true
+startup_chime = true
+command_chime = true
+error_chime = true
+
+[bluetooth]
+enabled = false
+device_name = "NodeSpark Wisp"
+service_uuid = "4E530001-4E53-5749-5350-000000000001"
+command_characteristic_uuid = "4E530002-4E53-5749-5350-000000000001"
+event_characteristic_uuid = "4E530003-4E53-5749-5350-000000000001"
+state_characteristic_uuid = "4E530004-4E53-5749-5350-000000000001"
+

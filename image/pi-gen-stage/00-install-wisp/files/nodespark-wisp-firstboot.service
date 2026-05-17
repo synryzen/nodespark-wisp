@@ -1,0 +1,14 @@
+[Unit]
+Description=NodeSpark Wisp first boot/config helper
+DefaultDependencies=no
+After=local-fs.target
+Before=nodespark-wisp.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nodespark-wisp-firstboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
