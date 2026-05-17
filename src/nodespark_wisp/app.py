@@ -54,6 +54,7 @@ class NodeSparkWispApp:
         return response
 
     def run_once(self, text: str = "", workflow: str | None = None) -> dict[str, Any]:
+        self._sync_workflows()
         workflow_name = workflow or self.current_workflow()
         payload = {
             "source": "wisp",
@@ -65,15 +66,44 @@ class NodeSparkWispApp:
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         self._animate("Running", workflow_name, (255, 180, 50), seconds=0.45)
-        response = self.hub.run_workflow(workflow_name, payload, trace=False)
-        output = str(response.get("output") or response.get("status") or "Done")
+        response = self.hub.run_workflow_async(workflow_name, payload)
+        response = self._await_run_result(response)
+        output = str(response.get("output") or response.get("status") or f"Started run {response.get('runId', '')}")
         status = str(response.get("status", "success"))
-        accent = (35, 190, 95) if status.lower() == "success" else (255, 80, 80)
-        self.display.show("Done" if status.lower() == "success" else "Run Failed", output[:180], workflow_name, accent, self._status_footer())
-        self._chime("success" if status.lower() == "success" else "error")
-        if self.cfg.speech.enabled:
+        accent = (35, 190, 95) if status.lower() == "success" else (60, 180, 255) if status.lower() == "running" else (255, 80, 80)
+        title = "Done" if status.lower() == "success" else "Running" if status.lower() == "running" else "Run Failed"
+        self.display.show(title, output[:180], workflow_name, accent, self._status_footer())
+        self._chime("success" if status.lower() in {"success", "running"} else "error")
+        if self.cfg.speech.enabled and status.lower() != "running":
             self.audio.speak(output, self.cfg.speech.voice, self.cfg.speech.rate)
         return response
+
+    def _await_run_result(self, response: dict[str, Any], wait_seconds: float = 24.0) -> dict[str, Any]:
+        run_id = str(response.get("runId") or "")
+        if not run_id:
+            return response
+
+        last = dict(response)
+        deadline = time.monotonic() + wait_seconds
+        while time.monotonic() < deadline:
+            time.sleep(1.5)
+            try:
+                status_response = self.hub.run_status(run_id)
+            except Exception as exc:
+                print(f"[run] status poll failed: {exc}")
+                continue
+
+            last.update(status_response)
+            status = str(status_response.get("status", "")).lower()
+            if status in {"success", "failed", "error", "cancelled", "canceled"}:
+                try:
+                    result_response = self.hub.run_result(run_id)
+                    last.update(result_response)
+                except Exception as exc:
+                    print(f"[run] result fetch failed: {exc}")
+                return last
+
+        return last
 
     def daemon(self) -> None:
         self._install_signal_handlers()
@@ -291,12 +321,13 @@ class NodeSparkWispApp:
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", f"rgb={rgb}")
             elif kind in {"runworkflow", "run", "workflow"}:
+                self._sync_workflows()
                 workflow = str(command.get("workflowName") or self.current_workflow())
                 payload = command.get("payload") if isinstance(command.get("payload"), dict) else {}
                 payload.setdefault("source", "whisplay-command")
                 payload.setdefault("deviceId", self.state.device_id)
                 self._animate("Hub Command", f"Running {workflow}", (255, 180, 50), seconds=0.6)
-                response = self.hub.run_workflow(workflow, payload)
+                response = self._await_run_result(self.hub.run_workflow_async(workflow, payload))
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", f"runId={response.get('runId', '')}")
             elif kind in {"workflows", "workflowlist", "listworkflows"}:
@@ -323,17 +354,24 @@ class NodeSparkWispApp:
                     self.display.show_card("Wisp Assistant" if ok else "AI Setup Needed", reply[:280], "NodeSparkHub AI", "ai", "ai" if ok else "warning", self._rgb(command, (120, 90, 255)), self._status_footer(force=True))
                     self._chime("success" if ok else "error")
                     self.hub.ack_command(command_id, "completed" if ok else "failed", reply[:500])
-                except Exception:
+                except Exception as exc:
+                    print(f"[assistant] direct Hub assistant unavailable: {exc}")
+                    self._sync_workflows()
                     workflow = str(command.get("workflowName") or self.current_workflow())
                     payload = {
                         "source": "whisplay-assistant-fallback",
                         "deviceId": self.state.device_id,
                         "text": text,
                         "input": text,
+                        "utterance": text,
                     }
-                    response = self.hub.run_workflow_async(workflow, payload)
-                    self.display.show_card("Wisp Assistant", "Direct AI endpoint was unavailable, so the request was sent to a Hub workflow.", "Fallback workflow", "ai", "warning", self._rgb(command, (255, 180, 50)), self._status_footer(force=True))
-                    self.hub.ack_command(command_id, "completed", f"workflowRun={response.get('runId', '')}")
+                    response = self._await_run_result(self.hub.run_workflow_async(workflow, payload))
+                    status = str(response.get("status") or "running").lower()
+                    reply = str(response.get("output") or response.get("status") or f"Started run {response.get('runId', '')}")
+                    ok = status in {"success", "running"}
+                    self.display.show_card("Wisp Assistant", reply[:280], workflow, "ai", "ai" if ok else "warning", self._rgb(command, (120, 90, 255)), self._status_footer(force=True))
+                    self._chime("success" if ok else "error")
+                    self.hub.ack_command(command_id, "completed" if ok else "failed", reply[:500])
             elif kind in {"selectworkflow", "select"}:
                 self._sync_workflows()
                 name = str(command.get("workflowName") or command.get("body") or command.get("text") or "")
