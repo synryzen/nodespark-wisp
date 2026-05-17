@@ -253,6 +253,7 @@ uint32_t lastCheckinMs = 0;
 uint32_t lastPollMs = 0;
 uint32_t lastWifiDrawMs = 0;
 uint32_t lastTouchPollMs = 0;
+uint32_t lastMicSampleMs = 0;
 uint32_t wifiConnectStartMs = 0;
 uint32_t lastWifiStatusMs = 0;
 String activeWifiSsid;
@@ -744,20 +745,34 @@ void drawDemo() {
   drawTabs();
 }
 
+void drawMicMeter(int level) {
+  int clamped = constrain(level, 0, 1023);
+  int barW = map(clamped, 0, 1023, 2, 284);
+  uint16_t color = clamped > 520 ? C_GREEN : (clamped > 120 ? C_AMBER : C_BLUE);
+
+  tft.fillRoundRect(16, 52, 288, 76, 10, C_PANEL);
+  tft.drawRoundRect(16, 52, 288, 76, 10, color);
+  tft.setTextColor(C_MUTED, C_PANEL);
+  tft.drawString("Live mic input", 28, 62, 2);
+  tft.setTextColor(color, C_PANEL);
+  tft.drawString(String(clamped), 240, 58, 4);
+  tft.setTextColor(lastMicBytes > 0 ? C_GREEN : C_AMBER, C_PANEL);
+  tft.drawString("bytes " + String(lastMicBytes), 28, 84, 2);
+  tft.fillRoundRect(28, 108, 264, 10, 5, 0x2945);
+  tft.fillRoundRect(28, 108, min(barW, 264), 10, 5, color);
+}
+
 void drawMic() {
   drawHeader("INMP441 Mic", C_PINK);
   tft.setTextColor(ILI9341_WHITE, C_BG);
-  tft.drawString("Live level", 16, 58, 4);
   String status = "Amp ";
   status += ampReady ? "ready" : "off";
   status += "   Mic ";
   status += micReady ? "ready" : "off";
   if (ampMuted) status += "   muted";
   tft.setTextColor(C_MUTED, C_BG);
-  tft.drawString(status, 16, 88, 2);
-  tft.drawString("Volume " + String(audioVolumePercent) + "%", 16, 108, 2);
-  tft.drawString("Pins " + ampPinModeLabel(), 16, 126, 2);
-  tft.drawString("Mic level " + String(lastMicLevel) + "  bytes " + String(lastMicBytes), 16, 202, 2);
+  tft.drawString(clipped(status + "  Vol " + String(audioVolumePercent) + "%  " + ampPinModeLabel(), 38), 16, 130, 2);
+  drawMicMeter(lastMicLevel);
   drawButton({14, 146, 54, 28, "Vol-", C_PANEL});
   drawButton({76, 146, 54, 28, "Vol+", C_PANEL});
   drawButton({138, 146, 54, 28, "Pins", C_AMBER});
@@ -2294,6 +2309,12 @@ void loop() {
   }
 
   processBleCommand();
+
+  if (!actionBusy && currentScreen == SCREEN_MIC && now - lastMicSampleMs >= 260) {
+    lastMicSampleMs = now;
+    sampleMicLevel();
+    drawMicMeter(lastMicLevel);
+  }
 
 #if WISP_ENABLE_HUB_HEARTBEAT
   if (!actionBusy && WiFi.isConnected() && token.length() && now - lastCheckinMs > WISP_HUB_HEARTBEAT_MS) {
