@@ -78,7 +78,7 @@ class NodeSparkWispApp:
             self.audio.speak(output, self.cfg.speech.voice, self.cfg.speech.rate)
         return response
 
-    def _await_run_result(self, response: dict[str, Any], wait_seconds: float = 24.0) -> dict[str, Any]:
+    def _await_run_result(self, response: dict[str, Any], wait_seconds: float = 45.0) -> dict[str, Any]:
         run_id = str(response.get("runId") or "")
         if not run_id:
             return response
