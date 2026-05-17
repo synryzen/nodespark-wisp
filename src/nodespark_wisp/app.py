@@ -238,7 +238,13 @@ class NodeSparkWispApp:
                     self.audio.speak(text, self.cfg.speech.voice, self.cfg.speech.rate)
                 self.hub.ack_command(command_id, "completed", "spoken")
             elif kind in {"volume", "setvolume", "speakerVolume", "speakervolume"}:
-                raw = command.get("percent", command.get("volume", command.get("level", command.get("value", 80))))
+                raw = command.get(
+                    "percent",
+                    command.get(
+                        "volume",
+                        command.get("level", command.get("value", command.get("body", command.get("text", 80)))),
+                    ),
+                )
                 try:
                     requested = int(float(raw))
                 except (TypeError, ValueError):
