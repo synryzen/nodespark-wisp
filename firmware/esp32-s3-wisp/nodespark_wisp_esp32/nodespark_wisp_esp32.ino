@@ -132,6 +132,13 @@ static const AmpPinMap AMP_PIN_MAPS[] = {
   {PIN_AMP_DIN, PIN_AMP_BCLK, PIN_AMP_LRCLK, "B16 L4 D5"},
 };
 static constexpr int AMP_PIN_MAP_COUNT = sizeof(AMP_PIN_MAPS) / sizeof(AMP_PIN_MAPS[0]);
+static const i2s_channel_fmt_t MIC_CHANNEL_FORMATS[] = {
+  I2S_CHANNEL_FMT_ONLY_LEFT,
+  I2S_CHANNEL_FMT_ONLY_RIGHT,
+  I2S_CHANNEL_FMT_RIGHT_LEFT,
+};
+static constexpr const char* MIC_CHANNEL_LABELS[] = {"LEFT", "RIGHT", "STEREO"};
+static constexpr int MIC_CHANNEL_MODE_COUNT = sizeof(MIC_CHANNEL_FORMATS) / sizeof(MIC_CHANNEL_FORMATS[0]);
 
 class WispTft {
 public:
@@ -244,6 +251,7 @@ int scannedCount = 0;
 int keyboardPage = 0;
 int audioVolumePercent = 90;
 int ampPinMode = 0;
+int micChannelMode = 0;
 bool ampMuted = false;
 int lastMicLevel = 0;
 int lastMicBytes = 0;
@@ -262,6 +270,7 @@ bool ampReady = false;
 bool micReady = false;
 bool bleReady = false;
 bool ampDriverInstalled = false;
+bool micDriverInstalled = false;
 bool touchDown = false;
 bool actionBusy = false;
 uint32_t lastTouchHandledMs = 0;
@@ -313,6 +322,7 @@ String commandTitle(const HubCommand& command, const String& fallback);
 void playChime(int kind);
 void runWorkflow(const String& text);
 void executeCommand(const HubCommand& command);
+bool configureMicInput();
 
 static const uint16_t C_BG = ILI9341_BLACK;
 static const uint16_t C_PANEL = 0x1084;
@@ -485,9 +495,30 @@ String ampPinModeLabel() {
   return String(AMP_PIN_MAPS[currentAmpPinIndex()].label);
 }
 
+int currentMicModeIndex() {
+  return constrain(micChannelMode, 0, MIC_CHANNEL_MODE_COUNT - 1);
+}
+
+String micModeLabel() {
+  return String(MIC_CHANNEL_LABELS[currentMicModeIndex()]);
+}
+
 void saveAmpPinMode() {
   ampPinMode = currentAmpPinIndex();
   prefs.putInt("ampPinMode", ampPinMode);
+}
+
+void saveMicMode() {
+  micChannelMode = currentMicModeIndex();
+  prefs.putInt("micMode", micChannelMode);
+}
+
+void cycleMicMode() {
+  micChannelMode = (currentMicModeIndex() + 1) % MIC_CHANNEL_MODE_COUNT;
+  saveMicMode();
+  configureMicInput();
+  lastStatus = "Mic mode " + micModeLabel();
+  appendSdLog("mic_mode", micModeLabel());
 }
 
 void clampSetting(String& value, int maxLen) {
@@ -769,6 +800,8 @@ void drawMic() {
   status += ampReady ? "ready" : "off";
   status += "   Mic ";
   status += micReady ? "ready" : "off";
+  status += " ";
+  status += micModeLabel();
   if (ampMuted) status += "   muted";
   tft.setTextColor(C_MUTED, C_BG);
   tft.drawString(clipped(status + "  Vol " + String(audioVolumePercent) + "%  " + ampPinModeLabel(), 38), 16, 130, 2);
@@ -777,7 +810,7 @@ void drawMic() {
   drawButton({76, 146, 54, 28, "Vol+", C_PANEL});
   drawButton({138, 146, 54, 28, "Pins", C_AMBER});
   drawButton({200, 146, 48, 28, "Tone", C_PINK});
-  drawButton({256, 146, 50, 28, "Mic", C_BLUE});
+  drawButton({256, 146, 50, 28, "Mode", C_BLUE});
   drawButton({14, 178, 84, 24, ampMuted ? "Unmute" : "Mute", C_PANEL});
   drawButton({108, 178, 198, 24, "Voice Run", C_AMBER});
   drawTabs();
@@ -2218,9 +2251,10 @@ void handleTouch(int x, int y) {
       playChime(0);
       drawMic();
     } else if (inBox(x, y, {256, 146, 50, 28, "", C_BLUE})) {
+      cycleMicMode();
       int level = sampleMicLevel();
       drawMic();
-      tft.fillRoundRect(18, 70, map(level, 0, 1023, 6, 284), 10, 5, C_GREEN);
+      drawMicMeter(level);
     } else if (inBox(x, y, {14, 178, 84, 24, "", C_PANEL})) {
       setAmpMuted(!ampMuted);
       drawMic();
@@ -2228,6 +2262,45 @@ void handleTouch(int x, int y) {
       runWorkflow("ESP32-S3 Wisp voice button pressed. Audio upload support will be added next.");
     }
   }
+}
+
+bool configureMicInput() {
+#if !WISP_ENABLE_AUDIO
+  micReady = false;
+  micDriverInstalled = false;
+  return false;
+#else
+  if (micDriverInstalled) {
+    i2s_driver_uninstall(I2S_NUM_1);
+    micDriverInstalled = false;
+    micReady = false;
+    delay(20);
+  }
+
+  i2s_config_t micConfig = {};
+  micConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
+  micConfig.sample_rate = 16000;
+  micConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
+  micConfig.channel_format = MIC_CHANNEL_FORMATS[currentMicModeIndex()];
+  micConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
+  micConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
+  micConfig.dma_buf_count = 4;
+  micConfig.dma_buf_len = 256;
+  micConfig.use_apll = false;
+  i2s_pin_config_t micPins = {PIN_MIC_SCK, PIN_MIC_WS, I2S_PIN_NO_CHANGE, PIN_MIC_SD};
+  esp_err_t micInstall = i2s_driver_install(I2S_NUM_1, &micConfig, 0, nullptr);
+  esp_err_t micPin = micInstall == ESP_OK ? i2s_set_pin(I2S_NUM_1, &micPins) : micInstall;
+  micReady = micInstall == ESP_OK && micPin == ESP_OK;
+  micDriverInstalled = micReady;
+  Serial.printf("[audio] mic mode=%s install=%d pin=%d pins sck=%d ws=%d sd=%d\n",
+                micModeLabel().c_str(),
+                (int)micInstall,
+                (int)micPin,
+                PIN_MIC_SCK,
+                PIN_MIC_WS,
+                PIN_MIC_SD);
+  return micReady;
+#endif
 }
 
 void setupAudio() {
@@ -2238,23 +2311,7 @@ void setupAudio() {
   return;
 #endif
   configureAmpOutput();
-
-  i2s_config_t micConfig = {};
-  micConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
-  micConfig.sample_rate = 16000;
-  micConfig.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
-  // INMP441 L/R tied to GND outputs on the left channel.
-  micConfig.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
-  micConfig.communication_format = I2S_COMM_FORMAT_STAND_I2S;
-  micConfig.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-  micConfig.dma_buf_count = 4;
-  micConfig.dma_buf_len = 256;
-  micConfig.use_apll = false;
-  i2s_pin_config_t micPins = {PIN_MIC_SCK, PIN_MIC_WS, I2S_PIN_NO_CHANGE, PIN_MIC_SD};
-  esp_err_t micInstall = i2s_driver_install(I2S_NUM_1, &micConfig, 0, nullptr);
-  esp_err_t micPin = micInstall == ESP_OK ? i2s_set_pin(I2S_NUM_1, &micPins) : micInstall;
-  micReady = micInstall == ESP_OK && micPin == ESP_OK;
-  Serial.printf("[audio] mic install=%d pin=%d pins sck=%d ws=%d sd=%d\n", (int)micInstall, (int)micPin, PIN_MIC_SCK, PIN_MIC_WS, PIN_MIC_SD);
+  configureMicInput();
 }
 
 void setupWifi() {
@@ -2285,6 +2342,7 @@ void setup() {
   Serial.printf("[boot] deviceId=%s\n", deviceId.c_str());
   token = prefs.getString("token", "");
   audioVolumePercent = constrain(prefs.getInt("audioVol", 90), 0, 100);
+  micChannelMode = constrain(prefs.getInt("micMode", 0), 0, MIC_CHANNEL_MODE_COUNT - 1);
 #if WISP_FORCE_DEFAULT_AMP_PINS
   ampPinMode = 0;
   prefs.putInt("ampPinMode", ampPinMode);
