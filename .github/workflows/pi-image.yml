@@ -24,6 +24,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git rsync qemu-user-binfmt binfmt-support
 
+      - name: Register arm64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Build Wisp Raspberry Pi OS image
         env:
           WISP_IMAGE_USE_DOCKER: "1"
