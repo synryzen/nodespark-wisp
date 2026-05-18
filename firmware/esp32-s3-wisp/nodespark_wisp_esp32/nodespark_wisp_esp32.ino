@@ -314,6 +314,8 @@ struct HubCommand {
   String metricValue;
   String items[6];
   int itemCount = 0;
+  int percent = -1;
+  int volume = -1;
   int rgbR = -1;
   int rgbG = -1;
   int rgbB = -1;
@@ -1914,6 +1916,8 @@ void loadCommand(JsonObject source, HubCommand& command) {
   command.metricLabel = bounded(source["metricLabel"].as<String>(), 48);
   command.metricValue = bounded(source["metricValue"].as<String>(), 48);
   command.itemCount = 0;
+  command.percent = source["percent"].is<int>() ? source["percent"].as<int>() : -1;
+  command.volume = source["volume"].is<int>() ? source["volume"].as<int>() : -1;
   command.rgbR = -1;
   command.rgbG = -1;
   command.rgbB = -1;
@@ -2023,6 +2027,35 @@ void executeCommand(const HubCommand& command) {
     showCard("Speaking", text, C_PINK);
     playChime(0);
     ackCommand(id, "completed", "chime played; TTS pending");
+  } else if (kind == "volume" || kind == "setvolume") {
+    int requested = command.percent >= 0 ? command.percent : command.volume;
+    if (requested < 0) requested = commandBody(command, String(audioVolumePercent)).toInt();
+    audioVolumePercent = constrain(requested, 0, 100);
+    saveAudioVolume();
+    ampMuted = audioVolumePercent == 0;
+    showCard("Speaker Volume", "ESP32-S3 Wisp volume set to " + String(audioVolumePercent) + "%.", C_GREEN);
+    playChime(0);
+    ackCommand(id, "completed", "volume=" + String(audioVolumePercent));
+  } else if (kind == "mute") {
+    setAmpMuted(true);
+    showCard("Speaker Muted", "Volume output is muted. Set volume from NodeSparkHub to unmute.", C_AMBER);
+    ackCommand(id, "completed", "muted");
+  } else if (kind == "brightness") {
+    int requested = command.percent >= 0 ? command.percent : commandBody(command, "86").toInt();
+    showCard("Brightness", "Brightness request " + String(constrain(requested, 10, 100)) + "%. This display module uses fixed backlight wiring unless BL is connected to PWM.", C_AMBER);
+    ackCommand(id, "completed", "brightness request shown");
+  } else if (kind == "mictest" || kind == "mic" || kind == "microphone") {
+    currentScreen = SCREEN_MIC;
+    drawMic();
+    ackCommand(id, "completed", "mic level shown");
+  } else if (kind == "sdcheck" || kind == "storage") {
+    actionCheckSdCard();
+    ackCommand(id, "completed", lastSdStatus);
+  } else if (kind == "reboot" || kind == "restart") {
+    showCard("Restarting", "NodeSparkHub requested a Wisp restart.", C_AMBER);
+    ackCommand(id, "completed", "restarting");
+    delay(600);
+    ESP.restart();
   } else if (kind == "led" || kind == "rgb" || kind == "setled") {
     uint16_t accent = commandAccent(command, C_BLUE);
     showCard("LED Color", "ESP32 Wisp used the requested color as its screen accent.", accent);

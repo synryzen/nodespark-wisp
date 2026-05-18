@@ -21,6 +21,8 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
   ideas, with workflow fallback when direct AI is not configured.
 - Select and save the active Hub workflow from NodeSparkHub commands.
 - Play I2S chimes and Hub-generated AI voice clips through the MAX98357 amp.
+- Respond to NodeSparkHub Wisp Control Center utility commands for volume,
+  mute, brightness requests, mic view, SD check, health, AI voice, and reboot.
 - Show a live microphone level from the INMP441.
 - Trigger a Hub workflow from the touchscreen.
 

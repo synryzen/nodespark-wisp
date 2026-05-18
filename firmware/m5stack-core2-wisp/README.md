@@ -93,6 +93,9 @@ Screens:
 - Workflow launch from the Core2.
 - Ask AI through NodeSparkHub using the shared Wisp Assistant response format.
 - Speaker chimes, volume control, and Hub-generated AI voice clip playback.
+- Respond to NodeSparkHub Wisp Control Center utility commands for volume,
+  mute, brightness, mic view, SD check, haptic test, health, AI voice, and
+  reboot.
 - Microphone level visualization.
 - Battery and charging display.
 - IMU tilt readout.

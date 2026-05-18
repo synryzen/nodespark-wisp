@@ -700,6 +700,32 @@ void handleCommand(JsonVariantConst item) {
     savePrefs();
     showCard("Volume", "Core2 volume set to " + String(map(volumeLevel, 0, 255, 0, 100)) + "%.", C_GREEN);
     playChime(C_GREEN);
+  } else if (kind == "mute") {
+    volumeLevel = 0;
+    savePrefs();
+    M5.Speaker.setVolume(0);
+    showCard("Muted", "Core2 speaker volume is now 0%.", C_AMBER);
+  } else if (kind == "brightness") {
+    int requested = item["percent"] | item["value"] | 86;
+    int percent = constrain(requested, 10, 100);
+    M5.Display.setBrightness(map(percent, 0, 100, 0, 255));
+    showCard("Brightness", "Core2 brightness set to " + String(percent) + "%.", C_GREEN);
+  } else if (kind == "mictest" || kind == "mic" || kind == "microphone") {
+    activeScreen = SCREEN_SENSORS;
+    sampleSensors();
+    drawSensorsScreen();
+  } else if (kind == "sdcheck" || kind == "storage") {
+    sdReady = false;
+    checkSdCard();
+    showCard("SD Card", sdReady ? "microSD is mounted and logging is available." : "microSD did not mount. Use FAT32 and insert before boot.", sdReady ? C_GREEN : C_AMBER);
+  } else if (kind == "haptic" || kind == "vibrate") {
+    pulseHaptic(140, 180);
+    showCard("Haptic", "Core2 vibration motor test completed.", C_GREEN);
+  } else if (kind == "reboot" || kind == "restart") {
+    showCard("Restarting", "NodeSparkHub requested a Core2 restart.", C_AMBER);
+    ackCommand(commandId, "completed", "restarting");
+    delay(600);
+    ESP.restart();
   } else if (kind == "ping" || kind == "health" || kind == "status") {
     showCard("Ping", "NodeSparkHub is talking to this M5Stack Core2 Wisp.", C_GREEN);
     pulseHaptic();

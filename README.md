@@ -113,6 +113,9 @@ Current Wisp capabilities:
   returned by NodeSparkHub's Wisp Assistant endpoint.
 - Play startup, listening, success, and error chimes when audio is available.
 - Adjust Whisplay speaker volume remotely from NodeSparkHub.
+- Use the NodeSparkHub Wisp Control Center for setup checks, demo profiles,
+  assistant voice tests, volume, brightness requests, mic view, SD/storage
+  checks, health dashboards, and reboot commands where supported by hardware.
 - Set the RGB LED color from Hub commands.
 - Run a selected Hub workflow from the physical button.
 - Run a selected Hub workflow from the ESP32-S3 touch UI.

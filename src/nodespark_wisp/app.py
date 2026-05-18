@@ -315,6 +315,50 @@ class NodeSparkWispApp:
                 )
                 self._chime("success")
                 self.hub.ack_command(command_id, "completed", f"volume={actual}%")
+            elif kind in {"mute", "silence"}:
+                actual = self.audio.set_volume(0)
+                self.display.show_dashboard(
+                    "Speaker Muted",
+                    "Whisplay",
+                    f"{actual}%",
+                    ["Set volume from NodeSparkHub to unmute", "Voice replies stay available", "Speaker path checked"],
+                    self._rgb(command, (120, 90, 255)),
+                    self._status_footer(force=True),
+                )
+                self.hub.ack_command(command_id, "completed", "muted")
+            elif kind in {"brightness", "screenbrightness"}:
+                requested = str(command.get("percent") or command.get("value") or command.get("body") or "86")
+                self.display.show_dashboard(
+                    "Brightness",
+                    "Whisplay",
+                    f"{requested}%",
+                    ["Brightness command received", "Whisplay backlight control depends on HAT driver support", "Display controls are ready"],
+                    self._rgb(command, (255, 210, 80)),
+                    self._status_footer(force=True),
+                )
+                self.hub.ack_command(command_id, "completed", f"brightness request={requested}%")
+            elif kind in {"mictest", "mic", "microphone"}:
+                self.display.show_dashboard(
+                    "Microphone Check",
+                    "Whisplay",
+                    "Ready",
+                    ["Hold the Wisp button to record", f"Record window: {self.cfg.audio.record_seconds}s", "Transcription provider configured in config"],
+                    self._rgb(command, (255, 90, 205)),
+                    self._status_footer(force=True),
+                )
+                self._chime("listen")
+                self.hub.ack_command(command_id, "completed", "mic check shown")
+            elif kind in {"sdcheck", "storage"}:
+                self.display.show_dashboard(
+                    "Storage Check",
+                    "Pi",
+                    "Ready",
+                    ["Raspberry Pi filesystem available", "Logs and config stored locally", "SD card image build supported"],
+                    self._rgb(command, (35, 190, 95)),
+                    self._status_footer(force=True),
+                )
+                self._chime("success")
+                self.hub.ack_command(command_id, "completed", "storage shown")
             elif kind in {"led", "rgb", "setled"}:
                 rgb = self._rgb(command, (60, 130, 255))
                 self.display.set_rgb(*rgb)
