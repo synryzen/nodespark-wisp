@@ -39,6 +39,11 @@ class WispBLEBridge:
         if self.loop and self.loop.is_running():
             self.loop.call_soon_threadsafe(lambda: None)
 
+    def notify_event(self, payload: dict[str, Any]) -> None:
+        if not self.loop or not self.loop.is_running() or not self.server:
+            return
+        self.loop.call_soon_threadsafe(lambda: asyncio.create_task(self._notify_event(payload)))
+
     def _thread_main(self) -> None:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -135,6 +140,21 @@ class WispBLEBridge:
             self.server.update_value(self.cfg.service_uuid, self.cfg.state_characteristic_uuid)
         except Exception as exc:
             print(f"[ble] notify failed: {exc}")
+
+    async def _notify_event(self, payload: dict[str, Any]) -> None:
+        if not self.server:
+            return
+        event = dict(payload)
+        event.setdefault("deviceId", self.app.state.device_id)
+        event.setdefault("deviceName", self.app.cfg.device.name)
+        event.setdefault("workflowName", self.app.current_workflow())
+        event.setdefault("bridge", "wisp-ble")
+        data = bytearray(self._event_json(event))
+        try:
+            self.server.get_characteristic(self.cfg.event_characteristic_uuid).value = data
+            self.server.update_value(self.cfg.service_uuid, self.cfg.event_characteristic_uuid)
+        except Exception as exc:
+            print(f"[ble] event notify failed: {exc}")
 
     def _state_json(self) -> bytes:
         return self._event_json({

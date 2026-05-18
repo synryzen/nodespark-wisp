@@ -15,6 +15,8 @@ Whisplay and ESP32-S3 builds:
 - Run a selected Hub workflow.
 - Ask NodeSparkHub's default AI profile through the Wisp Assistant endpoint for
   general questions, Hub help, and workflow ideas, with workflow fallback.
+- Pair with NodeSpark iOS over Bluetooth Mobile Bridge for mobile demos and
+  iPhone-forwarded Hub access.
 
 ## Hardware Needed
 
@@ -75,6 +77,17 @@ Screens:
 - `Sensors`: microphone level, IMU tilt, haptic test, and SD card status.
 - `Setup`: volume, Wi-Fi reconnect, token reset, and saved workflow.
 
+## Bluetooth Mobile Bridge
+
+Core2 advertises the same NodeSpark Wisp BLE GATT service used by Raspberry Pi
+Wisp and ESP32-S3. It is enabled by default with `WISP_ENABLE_BLE 1`.
+
+In NodeSpark on iPhone, open `Settings -> Hub Pairing & Control -> Wisp Mobile
+Bridge`, scan for `NodeSpark Wisp`, and connect. The iPhone can send display,
+speech, dashboard, ping, and demo commands over BLE. Core2 can also forward
+`Ask AI` and workflow requests back to the iPhone when direct Wi-Fi/Hub pairing
+is unavailable.
+
 ## Pair With NodeSparkHub
 
 1. Start NodeSparkHub and turn on the Hub Server.
@@ -92,6 +105,8 @@ Screens:
 - Rich display commands, notifications, dashboards, QR/link text, and approvals.
 - Workflow launch from the Core2.
 - Ask AI through NodeSparkHub using the shared Wisp Assistant response format.
+- Bluetooth Mobile Bridge with NodeSpark iOS for travel demos and remote Hub
+  forwarding.
 - Speaker chimes, volume control, and Hub-generated AI voice clip playback.
 - Respond to NodeSparkHub Wisp Control Center utility commands for volume,
   mute, brightness, mic view, SD check, haptic test, health, AI voice, and

@@ -66,7 +66,14 @@ class NodeSparkWispApp:
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         self._animate("Running", workflow_name, (255, 180, 50), seconds=0.45)
-        response = self.hub.run_workflow_async(workflow_name, payload)
+        try:
+            response = self.hub.run_workflow_async(workflow_name, payload)
+        except Exception:
+            if self._notify_mobile_bridge("runWorkflow", text or f"Run {workflow_name}", workflow_name):
+                self.display.show("iPhone Bridge", "Forwarded workflow request over Bluetooth.", workflow_name, (0, 190, 255), self._status_footer(force=True))
+                self._chime("success")
+                return {"status": "forwarded", "bridge": "ios", "workflowName": workflow_name}
+            raise
         response = self._await_run_result(response)
         output = str(response.get("output") or response.get("status") or f"Started run {response.get('runId', '')}")
         status = str(response.get("status", "success"))
@@ -215,6 +222,22 @@ class NodeSparkWispApp:
                 self.ble_bridge.stop()
             except Exception:
                 pass
+
+    def _notify_mobile_bridge(self, event_type: str, text: str, workflow_name: str | None = None) -> bool:
+        if self.ble_bridge is None:
+            return False
+        try:
+            self.ble_bridge.notify_event({
+                "type": event_type,
+                "text": text,
+                "body": text,
+                "detail": text,
+                "workflowName": workflow_name or self.current_workflow(),
+            })
+            return True
+        except Exception as exc:
+            print(f"[ble] bridge notify failed: {exc}")
+            return False
 
     def _execute_command(self, command: dict[str, Any]) -> None:
         command_id = str(command.get("id", ""))

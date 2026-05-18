@@ -330,6 +330,7 @@ void playChime(int kind);
 void runWorkflow(const String& text);
 void executeCommand(const HubCommand& command);
 bool configureMicInput();
+void bleNotifyEvent(const String& type, const String& detail);
 
 static const uint16_t C_BG = ILI9341_BLACK;
 static const uint16_t C_PANEL = 0x1084;
@@ -2102,7 +2103,15 @@ void bleNotifyState() {
 
 void bleNotifyEvent(const String& type, const String& detail) {
   if (!bleReady || !bleEventCharacteristic) return;
-  String event = "{\"type\":\"" + jsonEscape(type) + "\",\"detail\":\"" + jsonEscape(detail) + "\"}";
+  String event = "{";
+  event += "\"type\":\"" + jsonEscape(type) + "\",";
+  event += "\"detail\":\"" + jsonEscape(detail) + "\",";
+  event += "\"text\":\"" + jsonEscape(detail) + "\",";
+  event += "\"body\":\"" + jsonEscape(detail) + "\",";
+  event += "\"workflowName\":\"" + jsonEscape(defaultWorkflow) + "\",";
+  event += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
+  event += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  event += "\"bridge\":\"wisp-esp32-ble\"}";
   bleEventCharacteristic->setValue((uint8_t*)event.c_str(), event.length());
   bleEventCharacteristic->notify();
 }
@@ -2182,6 +2191,10 @@ void setupBleBridge() {
 }
 #else
 void bleNotifyState() {}
+void bleNotifyEvent(const String& type, const String& detail) {
+  (void)type;
+  (void)detail;
+}
 void processBleCommand() {}
 void setupBleBridge() {
   bleReady = false;
@@ -2250,11 +2263,21 @@ String resolveHubWorkflow(const String& preferred) {
 
 void runWorkflow(const String& text) {
   if (!WiFi.isConnected()) {
+    if (bleReady) {
+      bleNotifyEvent("runWorkflow", text);
+      showCard("iPhone Bridge", "Forwarded workflow request over Bluetooth.", C_BLUE);
+      return;
+    }
     lastStatus = "Connect Wi-Fi from Set > Conn first.";
     showCard("Wi-Fi Needed", lastStatus, C_AMBER);
     return;
   }
   if (!token.length()) {
+    if (bleReady) {
+      bleNotifyEvent("runWorkflow", text);
+      showCard("iPhone Bridge", "Forwarded workflow request over Bluetooth.", C_BLUE);
+      return;
+    }
     lastStatus = "Pair device before running workflows.";
     showCard("Pair Required", "Open Pair, enter the NodeSparkHub device code, then try Ask AI again.", C_AMBER);
     return;
@@ -2313,11 +2336,21 @@ void askAssistant(const String& text) {
 
 bool askHubAssistant(const String& text) {
   if (!WiFi.isConnected()) {
+    if (bleReady) {
+      bleNotifyEvent("assistant", text);
+      showCard("iPhone Bridge", "Forwarded AI request over Bluetooth.", C_PINK);
+      return true;
+    }
     lastStatus = "Connect Wi-Fi from Set > Conn first.";
     showCard("Wi-Fi Needed", lastStatus, C_AMBER);
     return true;
   }
   if (!token.length()) {
+    if (bleReady) {
+      bleNotifyEvent("assistant", text);
+      showCard("iPhone Bridge", "Forwarded AI request over Bluetooth.", C_PINK);
+      return true;
+    }
     lastStatus = "Pair device before using Wisp Assistant.";
     showCard("Pair Required", "Open Pair, enter the NodeSparkHub device code, then try Ask AI again.", C_AMBER);
     return true;

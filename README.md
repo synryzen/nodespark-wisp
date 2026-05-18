@@ -200,9 +200,10 @@ The ESP32-S3 firmware currently supports Wi-Fi Hub pairing, check-ins, Hub
 command polling, touch navigation, touchscreen approvals, local demo actions,
 workflow triggering, direct `Ask AI` through NodeSparkHub, rich cards, dashboard
 items, notifications, icon grids, QR/link screens, startup logo screens, device
-health checks, I2S chimes, and INMP441 mic level testing. ESP32-S3 Bluetooth
-Mobile Bridge code is present but disabled by default for stability; use the
-Raspberry Pi Wisp for reliable iPhone BLE bridge demos today.
+health checks, I2S chimes, INMP441 mic level testing, and the shared Wisp Mobile
+Bridge BLE protocol when `WISP_ENABLE_BLE` is enabled. ESP32-S3 Bluetooth stays
+opt-in because some boards become unstable when BLE, Wi-Fi, HTTPS, I2S, and TFT
+UI are all active.
 
 ## M5Stack Core2 Hardware Needed
 
@@ -232,7 +233,7 @@ The Core2 firmware supports the NodeSpark mascot startup screen, touch
 navigation, virtual hardware buttons, Hub pairing, automatic check-ins, command
 polling, approvals, rich cards, Ask AI, workflow launch, speaker chimes, haptic
 feedback, volume control, mic level visualization, battery/charging status, IMU
-readings, and SD card health logging.
+readings, SD card health logging, and Bluetooth Mobile Bridge for NodeSpark iOS.
 
 ## Quick Install
 
@@ -427,12 +428,14 @@ vosk_model_path = "/opt/nodespark-wisp/models/vosk"
 Wisp Mobile Bridge is an optional Bluetooth LE mode for travel demos and
 on-the-go control. It lets NodeSpark on iPhone connect directly to the Wisp,
 send display/speech/dashboard commands, and forward Wisp events into
-NodeSparkHub when the iPhone has a Hub connection.
+NodeSparkHub when the iPhone has a Hub connection. Raspberry Pi Wisp and
+M5Stack Core2 can advertise this bridge directly; ESP32-S3 includes the same
+bridge behind `WISP_ENABLE_BLE` for boards that stay stable with BLE enabled.
 
 The standard Wi-Fi/Hub connection remains the best full-time setup. Bluetooth
 bridge mode is for mobile use when the Wisp is near the iPhone.
 
-Enable it on the Pi:
+Enable it on Raspberry Pi Wisp:
 
 ```bash
 /opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
@@ -453,6 +456,13 @@ Restart:
 sudo systemctl restart nodespark-wisp
 ```
 
+On M5Stack Core2, BLE Mobile Bridge is enabled by default in
+`firmware/m5stack-core2-wisp/nodespark_wisp_core2/config.example.h` with
+`WISP_ENABLE_BLE 1`.
+
+On ESP32-S3, set `WISP_ENABLE_BLE` to `1` in `config.h` only after the
+display/touch/Wi-Fi/audio build is stable.
+
 In NodeSpark on iPhone, open:
 
 ```text
@@ -471,6 +481,10 @@ BLE protocol:
 Commands are compact JSON objects using the same command shapes as the Hub
 device command channel, such as `display`, `card`, `dashboard`, `speak`, `led`,
 `ping`, and `demo`.
+
+Device-originated `assistant` and `runWorkflow` events include `text`, `body`,
+`detail`, `workflowName`, and device identity so NodeSpark iOS can forward them
+to NodeSparkHub over the user's current iPhone connection.
 
 ## Startup Logo
 

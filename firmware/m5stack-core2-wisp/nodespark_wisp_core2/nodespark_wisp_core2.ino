@@ -24,10 +24,21 @@
 #define WISP_ENABLE_MIC 1
 #define WISP_ENABLE_SPEAKER 1
 #define WISP_ENABLE_HAPTICS 1
+#define WISP_ENABLE_BLE 1
 #endif
 
 #ifndef WISP_MAX_SPEECH_WAV_BYTES
 #define WISP_MAX_SPEECH_WAV_BYTES 1572864
+#endif
+#ifndef WISP_ENABLE_BLE
+#define WISP_ENABLE_BLE 1
+#endif
+
+#if WISP_ENABLE_BLE
+#include <BLE2902.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
 #endif
 
 #include "mascot_logo.h"
@@ -48,6 +59,12 @@ static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr int NAV_Y = 206;
 static constexpr int NAV_H = 34;
+#if WISP_ENABLE_BLE
+static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_EVENT_UUID = "4E530003-4E53-5749-5350-000000000001";
+static constexpr const char* BLE_STATE_UUID = "4E530004-4E53-5749-5350-000000000001";
+#endif
 
 enum Screen : uint8_t {
   SCREEN_STATUS = 0,
@@ -86,6 +103,7 @@ String lastCommand = "No Hub command yet";
 String pendingApprovalId;
 String pendingApprovalText;
 bool hubOnline = false;
+bool bleReady = false;
 bool sdReady = false;
 bool micReady = false;
 bool speakerReady = false;
@@ -99,6 +117,17 @@ uint32_t lastHeartbeatMs = 0;
 uint32_t lastCommandPollMs = 0;
 uint32_t lastSensorMs = 0;
 Screen activeScreen = SCREEN_STATUS;
+#if WISP_ENABLE_BLE
+BLECharacteristic* bleStateCharacteristic = nullptr;
+BLECharacteristic* bleEventCharacteristic = nullptr;
+char pendingBleRaw[512] = {0};
+volatile bool pendingBleCommand = false;
+#endif
+
+void setupBleBridge();
+void processBleCommand();
+void bleNotifyState();
+void bleNotifyEvent(const String& type, const String& detail);
 
 ButtonRect navButtons[] = {
   {0, NAV_Y, 64, NAV_H, "Status"},
@@ -598,6 +627,11 @@ void ackCommand(const String& commandId, const String& status, const String& mes
 
 void runWorkflow(const String& input = "M5Stack Core2 Wisp requested a workflow.") {
   if (!token.length()) {
+    if (bleReady) {
+      bleNotifyEvent("runWorkflow", input);
+      showCard("iPhone Bridge", "Forwarded workflow request over Bluetooth.", C_CYAN);
+      return;
+    }
     showCard("Pair Required", "Pair the Core2 before running NodeSparkHub workflows.", C_AMBER);
     return;
   }
@@ -623,6 +657,11 @@ void runWorkflow(const String& input = "M5Stack Core2 Wisp requested a workflow.
 
 void askAssistant(const String& prompt = "Give a short exciting demo of what NodeSpark Wisp Core2 can do.") {
   if (!token.length()) {
+    if (bleReady) {
+      bleNotifyEvent("assistant", prompt);
+      showCard("iPhone Bridge", "Forwarded AI request over Bluetooth.", C_PINK);
+      return;
+    }
     showCard("Pair Required", "Pair the Core2 before using Wisp Assistant.", C_AMBER);
     return;
   }
@@ -734,6 +773,124 @@ void handleCommand(JsonVariantConst item) {
   }
   ackCommand(commandId, "completed", "handled on M5Stack Core2");
 }
+
+#if WISP_ENABLE_BLE
+String bleStateJson() {
+  String body = "{";
+  body += "\"type\":\"state\",";
+  body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
+  body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  body += "\"workflowName\":\"" + jsonEscape(defaultWorkflow) + "\",";
+  body += "\"pairedToHub\":" + String(token.length() ? "true" : "false") + ",";
+  body += "\"wifi\":" + String(WiFi.isConnected() ? "true" : "false") + ",";
+  body += "\"platform\":\"M5Stack Core2 / NodeSpark Wisp\",";
+  body += "\"bridge\":\"wisp-core2-ble\"}";
+  return body;
+}
+
+void bleNotifyState() {
+  if (!bleReady || !bleStateCharacteristic) return;
+  String state = bleStateJson();
+  bleStateCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+  bleStateCharacteristic->notify();
+}
+
+void bleNotifyEvent(const String& type, const String& detail) {
+  if (!bleReady || !bleEventCharacteristic) return;
+  String event = "{";
+  event += "\"type\":\"" + jsonEscape(type) + "\",";
+  event += "\"detail\":\"" + jsonEscape(detail) + "\",";
+  event += "\"text\":\"" + jsonEscape(detail) + "\",";
+  event += "\"body\":\"" + jsonEscape(detail) + "\",";
+  event += "\"workflowName\":\"" + jsonEscape(defaultWorkflow) + "\",";
+  event += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
+  event += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
+  event += "\"bridge\":\"wisp-core2-ble\"}";
+  bleEventCharacteristic->setValue((uint8_t*)event.c_str(), event.length());
+  bleEventCharacteristic->notify();
+}
+
+class WispCore2BleCommandCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* characteristic) override {
+    String raw = characteristic->getValue().c_str();
+    raw.trim();
+    if (!raw.length()) return;
+    size_t n = min((size_t)raw.length(), sizeof(pendingBleRaw) - 1);
+    memcpy(pendingBleRaw, raw.c_str(), n);
+    pendingBleRaw[n] = '\0';
+    pendingBleCommand = true;
+  }
+};
+
+void processBleCommand() {
+  if (!pendingBleCommand) return;
+  char raw[sizeof(pendingBleRaw)];
+  noInterrupts();
+  strncpy(raw, pendingBleRaw, sizeof(raw));
+  raw[sizeof(raw) - 1] = '\0';
+  pendingBleCommand = false;
+  interrupts();
+
+  DynamicJsonDocument doc(1024);
+  DeserializationError err = deserializeJson(doc, raw);
+  if (err || !doc.is<JsonObject>()) {
+    bleNotifyEvent("error", "Bad BLE JSON");
+    return;
+  }
+  handleCommand(doc.as<JsonObjectConst>());
+  bleNotifyEvent("command", doc["type"] | "display");
+  bleNotifyState();
+}
+
+void setupBleBridge() {
+  BLEDevice::init("NodeSpark Wisp Core2");
+  BLEServer* server = BLEDevice::createServer();
+  BLEService* service = server->createService(BLE_SERVICE_UUID);
+
+  BLECharacteristic* commandCharacteristic = service->createCharacteristic(
+    BLE_COMMAND_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  commandCharacteristic->setCallbacks(new WispCore2BleCommandCallbacks());
+
+  bleEventCharacteristic = service->createCharacteristic(
+    BLE_EVENT_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  bleEventCharacteristic->addDescriptor(new BLE2902());
+
+  bleStateCharacteristic = service->createCharacteristic(
+    BLE_STATE_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  bleStateCharacteristic->addDescriptor(new BLE2902());
+
+  String state = bleStateJson();
+  bleEventCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+  bleStateCharacteristic->setValue((uint8_t*)state.c_str(), state.length());
+
+  service->start();
+  BLEAdvertising* advertising = BLEDevice::getAdvertising();
+  advertising->addServiceUUID(BLE_SERVICE_UUID);
+  advertising->setScanResponse(true);
+  advertising->setMinPreferred(0x06);
+  advertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+  bleReady = true;
+  Serial.println("[ble] Core2 Wisp Mobile Bridge advertising");
+}
+#else
+void bleNotifyState() {}
+void bleNotifyEvent(const String& type, const String& detail) {
+  (void)type;
+  (void)detail;
+}
+void processBleCommand() {}
+void setupBleBridge() {
+  bleReady = false;
+  Serial.println("[ble] Core2 Wisp Mobile Bridge disabled");
+}
+#endif
 
 void pollCommands() {
   if (!token.length() || !WiFi.isConnected()) return;
@@ -1013,6 +1170,7 @@ void setup() {
 
   startMic();
   checkSdCard();
+  setupBleBridge();
   delay(900);
 
 #if WISP_CONNECT_ON_BOOT
@@ -1028,6 +1186,7 @@ void setup() {
 
 void loop() {
   M5.update();
+  processBleCommand();
   handleTouch();
   handleButtons();
   sampleSensors();
@@ -1036,6 +1195,7 @@ void loop() {
     lastHeartbeatMs = millis();
     if (token.length()) checkIn();
     else healthCheck();
+    bleNotifyState();
   }
   if (WiFi.isConnected() && token.length() && millis() - lastCommandPollMs > WISP_COMMAND_POLL_MS) {
     lastCommandPollMs = millis();

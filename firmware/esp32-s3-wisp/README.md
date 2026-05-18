@@ -152,14 +152,14 @@ list as `ESP32-S3 / NodeSpark Wisp Touch`.
 
 ## Bluetooth Mobile Bridge
 
-The ESP32-S3 firmware includes an experimental BLE bridge implementation using
-the same GATT service as the Raspberry Pi Wisp, but it is disabled by default
+The ESP32-S3 firmware includes the shared Wisp Mobile Bridge BLE implementation
+used by Raspberry Pi Wisp and M5Stack Core2, but it is disabled by default
 because the Arduino-ESP32 BLE stack can reboot some ESP32-S3 boards when it is
 combined with Wi-Fi, HTTPS, I2S, and TFT UI in one sketch.
 
-For reliable demos today, use Bluetooth Mobile Bridge on the Raspberry Pi
-Wisp. To experiment on ESP32-S3, set `WISP_ENABLE_BLE` to `1` in `config.h`
-and build with the 16 MB / 3 MB app partition.
+For reliable demos today, use Bluetooth Mobile Bridge on Raspberry Pi Wisp or
+M5Stack Core2. To experiment on ESP32-S3, set `WISP_ENABLE_BLE` to `1` in
+`config.h` and build with the 16 MB / 3 MB app partition.
 
 - Service: `4E530001-4E53-5749-5350-000000000001`
 - Command characteristic: `4E530002-4E53-5749-5350-000000000001`
@@ -169,14 +169,16 @@ and build with the 16 MB / 3 MB app partition.
 When enabled, open NodeSpark on iPhone, go to `Settings -> Hub Pairing &
 Control -> Wisp Mobile Bridge`, scan for `NodeSpark Wisp`, and connect. The
 iPhone can send compact JSON commands such as `ping`, `card`, and `dashboard`
-over BLE. The firmware processes BLE commands from the main loop so Bluetooth
-writes do not interrupt display or network work.
+over BLE. The ESP32-S3 can also forward `Ask AI` and workflow requests to the
+iPhone when direct Wi-Fi/Hub pairing is unavailable. The firmware processes BLE
+commands from the main loop so Bluetooth writes do not interrupt display or
+network work.
 
 ## Current Limitations
 
 - ESP32-S3 BLE bridge is experimental and disabled by default for stability.
-  Use the Raspberry Pi Wisp for production Bluetooth Mobile Bridge demos until
-  the ESP32 build moves to a lighter BLE stack.
+  Use Raspberry Pi Wisp or M5Stack Core2 for production Bluetooth Mobile Bridge
+  demos until the ESP32 build moves to a lighter BLE stack.
 - Full AI voice playback uses NodeSparkHub's Wisp Assistant speech clip URL.
   The firmware downloads the short PCM WAV reply and streams it over I2S to the
   MAX98357 amplifier. If the clip is unavailable, the device falls back to the

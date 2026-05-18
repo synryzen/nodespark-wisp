@@ -16,8 +16,8 @@
 
 // Experimental on ESP32-S3: the BLE stack can cause reboot loops on some
 // Arduino-ESP32 2.x builds when combined with Wi-Fi, HTTPS, I2S, and TFT UI.
-// Keep disabled for stable demos. Use the Raspberry Pi Wisp for BLE bridge
-// demos until the ESP32 build moves to a lighter BLE stack.
+// Keep disabled for stable demos. Use Raspberry Pi Wisp or M5Stack Core2 for
+// BLE bridge demos until the ESP32 build moves to a lighter BLE stack.
 #define WISP_ENABLE_BLE 0
 
 // Keep audio disabled until the MAX98357 amp and INMP441 mic are wired. This
