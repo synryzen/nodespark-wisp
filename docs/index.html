@@ -18,6 +18,7 @@
       </a>
       <nav>
         <a href="#features">Features</a>
+        <a href="#intelligence">AI</a>
         <a href="#hardware">Hardware</a>
         <a href="#install">Install</a>
         <a href="https://github.com/synryzen/nodespark-wisp">GitHub</a>
@@ -31,7 +32,8 @@
           <h1 id="hero-title">NodeSpark Wisp</h1>
           <p class="lead">
             A pocket-sized physical device family that gives NodeSparkHub a real display,
-            speaker, microphone, touch controls, and workflow interface for live automation demos.
+            speaker, microphone, touch controls, AI assistant access, and workflow
+            interface for live automation demos.
           </p>
           <div class="actions">
             <a class="button primary" href="https://github.com/synryzen/nodespark-wisp">View on GitHub</a>
@@ -59,7 +61,8 @@
         <p>
           Wisp connects Hub workflows to physical output. It can show workflow status,
           request approvals, display QR codes, run favorites from a button or touch screen,
-          play sound, and bridge mobile demos through NodeSpark on iPhone.
+          play sound, ask NodeSparkHub's default AI model, and bridge mobile demos
+          through NodeSpark on iPhone.
         </p>
       </section>
 
@@ -86,8 +89,8 @@
           </article>
           <article>
             <span class="feature-icon">04</span>
-            <h3>Voice Input</h3>
-            <p>Record short commands and route transcripts into Hub workflows using OpenAI, Vosk, or text-only mode.</p>
+            <h3>Wisp Assistant</h3>
+            <p>Ask NodeSparkHub's default AI profile questions and show or speak the response on the device.</p>
           </article>
           <article>
             <span class="feature-icon">05</span>
@@ -99,6 +102,28 @@
             <h3>Mobile Bridge</h3>
             <p>Optionally connect NodeSpark on iPhone over Bluetooth LE for travel demos and direct Wisp commands.</p>
           </article>
+        </div>
+      </section>
+
+      <section class="band intelligence" id="intelligence" aria-labelledby="intelligence-title">
+        <div>
+          <p class="section-kicker">NodeSparkHub Intelligence</p>
+          <h2 id="intelligence-title">A physical AI assistant for Hub workflows.</h2>
+        </div>
+        <div>
+          <p>
+            NodeSparkHub 3.2 adds an Intelligence Center that upgrades Wisp Assistant
+            requests with local assistant memory, token compression, prompt safety
+            checks, and smarter model routing while keeping existing pairing,
+            workflow, device command, and Bluetooth bridge behavior intact.
+          </p>
+          <ul class="check-list compact intelligence-list">
+            <li>Ask general AI questions from Raspberry Pi, ESP32-S3, or Core2 Wisp.</li>
+            <li>Use Hub memory and the default AI profile for better follow-up answers.</li>
+            <li>Show answers as text, rich cards, or spoken replies when audio is available.</li>
+            <li>Control Wisp Assistant from NodeSparkHub Settings or Dashboard.</li>
+            <li>Use NodeSpark iOS Intelligence settings with Wisp Mobile Bridge.</li>
+          </ul>
         </div>
       </section>
 
@@ -158,6 +183,11 @@
         <div class="section-heading">
           <p class="section-kicker">Install</p>
           <h2 id="install-title">Flash the Wisp image, or install manually.</h2>
+          <p>
+            Use NodeSparkHub 3.2 or newer for the Intelligence Center and direct
+            Wisp Assistant support. Use NodeSpark iOS 3.2 or newer for the updated
+            Wisp Mobile Bridge controls.
+          </p>
         </div>
         <div class="steps">
           <article>
@@ -169,7 +199,9 @@ Flash microSD</code></pre>
           </article>
           <article>
             <h3>2. Pair with NodeSparkHub</h3>
-            <pre><code>Open Hub Server -> Devices
+            <pre><code>Open Settings -> Intelligence
+Enable Wisp Assistant
+Open Hub Server -> Devices
 Generate pairing code
 Pair Wisp from SSH or QR/setup screen</code></pre>
           </article>

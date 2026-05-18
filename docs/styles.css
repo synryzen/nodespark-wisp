@@ -384,6 +384,17 @@ pre {
     #0b151e;
 }
 
+.intelligence {
+  background:
+    linear-gradient(120deg, rgba(39, 200, 255, 0.12), transparent 38%),
+    linear-gradient(260deg, rgba(68, 214, 140, 0.1), transparent 40%),
+    #09141d;
+}
+
+.intelligence-list {
+  margin-top: 18px;
+}
+
 .site-footer {
   display: flex;
   justify-content: space-between;

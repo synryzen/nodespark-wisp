@@ -72,6 +72,7 @@ The device uses these Hub API flows:
 - `GET /workflows`
 - `POST /workflows/<name>/run`
 - `GET /runs/<id>/status`
+- `POST /wisp/assistant`
 - `POST /devices/<deviceId>/commands`
 - `GET /devices/<deviceId>/commands/poll`
 - `POST /devices/<deviceId>/commands/<commandId>/ack`
@@ -79,6 +80,44 @@ The device uses these Hub API flows:
 NodeSparkHub can send commands to the Wisp from workflow templates, local demo
 scripts, or direct API calls. The Wisp acknowledges each command so Hub can know
 whether it displayed, spoke, ran, approved, rejected, or failed the request.
+
+## NodeSparkHub Intelligence
+
+NodeSpark Wisp is designed to work with the NodeSparkHub Intelligence Center in
+NodeSparkHub 3.2 and newer. That means the device can be more than a remote
+workflow button: it can act like a small AI assistant for the Hub.
+
+The current app-side intelligence layer adds:
+
+- Wisp Assistant access to NodeSparkHub's default AI profile.
+- Local assistant memory for more helpful follow-up responses.
+- Token compression so long device/workflow context can be sent more cleanly.
+- Prompt safety checks before Hub or device-originated AI requests are sent.
+- Smart model routing hints for extraction, classification, JSON, creative, and
+  general assistant tasks.
+- A Hub setting to turn Wisp Assistant access on or off without breaking normal
+  device pairing, command polling, workflow launches, or Bluetooth Mobile Bridge.
+
+In NodeSparkHub, open:
+
+```text
+Settings -> Intelligence
+```
+
+or:
+
+```text
+Dashboard -> Intelligence
+```
+
+In NodeSpark on iPhone, open:
+
+```text
+Settings -> Intelligence
+```
+
+These settings upgrade the AI behavior around Wisp, Hub workflows, and iPhone
+bridge requests while preserving the existing device API contract.
 
 ## What The Device Can Do
 
@@ -98,6 +137,8 @@ Current Wisp capabilities:
 - Ask NodeSparkHub's default AI profile through the Wisp Assistant endpoint for
   general questions, troubleshooting, brainstorming, and workflow help, with
   workflow fallback when direct AI is not configured.
+- Use NodeSparkHub Intelligence memory, prompt safety, token compression, and
+  smart model routing when Wisp Assistant is enabled.
 - Show approval prompts where short press approves and hold rejects.
 - Show a notification center with recent Hub alerts.
 - Show compact dashboards with metrics and list items.
@@ -187,6 +228,8 @@ Recommended software/runtime:
 - Hub Server enabled in NodeSparkHub
 - Optional: OpenAI API key for cloud transcription
 - Optional: Vosk model for offline speech transcription
+- NodeSparkHub 3.2 or newer for Intelligence Center and Wisp Assistant
+- NodeSpark iOS 3.2 or newer for Wisp Mobile Bridge intelligence settings
 
 Important: this project uses the same physical hardware style as OpenClaw, but
 it is NodeSparkHub companion software. OpenClaw is not required.
@@ -331,8 +374,9 @@ In NodeSparkHub on your Mac:
 
 1. Start NodeSparkHub.
 2. Start the Hub server.
-3. Open `Settings -> Hub Server -> Devices`.
-4. Generate a pairing code.
+3. Open `Settings -> Intelligence` and confirm `Wisp Assistant` is enabled.
+4. Open `Settings -> Hub Server -> Devices`.
+5. Generate a pairing code.
 
 Then pair the Pi:
 
@@ -405,6 +449,9 @@ Supported Wisp command types:
 - `runWorkflow`: ask the device to start another Hub workflow.
 - `selectWorkflow`: change the selected favorite workflow.
 - `workflows`: show the currently synced Hub workflow list on the device.
+
+Wisp-originated assistant requests use `POST /wisp/assistant` and return text
+plus optional speech audio when NodeSparkHub can synthesize a voice response.
 
 Raw rich-card example:
 

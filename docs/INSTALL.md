@@ -10,6 +10,8 @@ The repo also includes ESP32-S3 and M5Stack Core2 touch-screen firmware builds.
 - PiSugar battery
 - Raspberry Pi OS with Wi-Fi enabled
 - NodeSparkHub running on your Mac, with the Hub Server started
+- NodeSparkHub 3.2 or newer for Intelligence Center and Wisp Assistant
+- NodeSpark iOS 3.2 or newer for Wisp Mobile Bridge intelligence settings
 - Active NodeSparkHub All Access subscription for live Wisp operation
 
 NodeSpark Wisp is not feature-tiered on the device. The subscription activates
@@ -81,13 +83,19 @@ favorite_workflows = ["Wisp Assistant", "Quick Note", "Home Status"]
 
 ## Pair With NodeSparkHub
 
-In NodeSparkHub, generate a pairing code. Then run:
+In NodeSparkHub, first open `Settings -> Intelligence` and confirm `Wisp
+Assistant` is enabled. Then generate a pairing code and run:
 
 ```bash
 /opt/nodespark-wisp/scripts/pair_device.sh 123456
 ```
 
 Open `Settings -> Hub Server -> Devices` in NodeSparkHub. You should see `NodeSpark Wisp`.
+
+To test direct AI assistant replies from the device, use a Wisp build with
+speaker support and make sure NodeSparkHub has a default AI profile configured.
+The device sends assistant requests to NodeSparkHub through `/wisp/assistant`,
+so normal Hub pairing and device tokens are still used.
 
 ## Start The Service
 
@@ -143,6 +151,15 @@ Settings -> Hub Pairing & Control -> Wisp Mobile Bridge
 ```
 
 Scan for the Wisp and connect. The iPhone bridge can send direct commands to the Wisp and can forward Wisp events to NodeSparkHub when the iPhone is paired with a reachable Hub.
+
+For iPhone-side intelligence controls, open:
+
+```text
+Settings -> Intelligence
+```
+
+Keep `Wisp Mobile Assist` enabled if you want NodeSpark iOS to forward Wisp
+assistant and workflow events through the current Hub connection.
 
 ## Optional Audio Driver
 
