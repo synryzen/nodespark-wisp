@@ -66,8 +66,7 @@ error_chime = true
 
 [bluetooth]
 # Optional iPhone bridge mode. Keep disabled for the standard Wi-Fi/Hub setup.
-# Enable after installing the optional BLE dependency:
-#   /opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
+# The custom Raspberry Pi image and install_pi.sh install the BLE dependency.
 enabled = false
 device_name = "NodeSpark Wisp"
 service_uuid = "4E530001-4E53-5749-5350-000000000001"

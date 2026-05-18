@@ -39,10 +39,11 @@ class WispBLEBridge:
         if self.loop and self.loop.is_running():
             self.loop.call_soon_threadsafe(lambda: None)
 
-    def notify_event(self, payload: dict[str, Any]) -> None:
+    def notify_event(self, payload: dict[str, Any]) -> bool:
         if not self.loop or not self.loop.is_running() or not self.server:
-            return
+            return False
         self.loop.call_soon_threadsafe(lambda: asyncio.create_task(self._notify_event(payload)))
+        return True
 
     def _thread_main(self) -> None:
         self.loop = asyncio.new_event_loop()

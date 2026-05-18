@@ -227,14 +227,13 @@ class NodeSparkWispApp:
         if self.ble_bridge is None:
             return False
         try:
-            self.ble_bridge.notify_event({
+            return self.ble_bridge.notify_event({
                 "type": event_type,
                 "text": text,
                 "body": text,
                 "detail": text,
                 "workflowName": workflow_name or self.current_workflow(),
             })
-            return True
         except Exception as exc:
             print(f"[ble] bridge notify failed: {exc}")
             return False

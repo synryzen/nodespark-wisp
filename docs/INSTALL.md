@@ -115,11 +115,10 @@ bash scripts/send_demo_command.sh <device-id> demo
 ## Optional Wisp Mobile Bridge
 
 To let NodeSpark on iPhone connect to the Wisp over Bluetooth LE, enable bridge
-mode. The custom Raspberry Pi image already includes the BLE dependency; manual
-installs can install it with the command below.
+mode. The custom Raspberry Pi image and `install_pi.sh` already include the BLE
+dependency.
 
 ```bash
-/opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
 sudo nano /etc/nodespark-wisp/config.toml
 ```
 

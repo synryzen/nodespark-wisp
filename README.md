@@ -479,7 +479,6 @@ bridge mode is for mobile use when the Wisp is near the iPhone.
 Enable it on Raspberry Pi Wisp:
 
 ```bash
-/opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'
 sudo nano /etc/nodespark-wisp/config.toml
 ```
 
