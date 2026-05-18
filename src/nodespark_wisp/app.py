@@ -349,11 +349,14 @@ class NodeSparkWispApp:
                 self._animate("Wisp Assistant", "Asking NodeSparkHub AI", self._rgb(command, (120, 90, 255)), seconds=0.7)
                 try:
                     response = self.hub.ask_assistant(text)
-                    reply = str(response.get("reply") or response.get("message") or response.get("error") or "No assistant reply.")
+                    reply = str(response.get("displayText") or response.get("reply") or response.get("message") or response.get("error") or "No assistant reply.")
+                    speech = str(response.get("speechText") or response.get("reply") or reply)
                     ok = bool(response.get("ok", True))
                     self.display.show_card("Wisp Assistant" if ok else "AI Setup Needed", reply[:280], "NodeSparkHub AI", "ai", "ai" if ok else "warning", self._rgb(command, (120, 90, 255)), self._status_footer(force=True))
+                    if ok and response.get("shouldSpeak", True):
+                        self.audio.speak(speech, self.cfg.speech.voice, self.cfg.speech.rate)
                     self._chime("success" if ok else "error")
-                    self.hub.ack_command(command_id, "completed" if ok else "failed", reply[:500])
+                    self.hub.ack_command(command_id, "completed" if ok else "failed", str(response.get("reply") or reply)[:500])
                 except Exception as exc:
                     print(f"[assistant] direct Hub assistant unavailable: {exc}")
                     self._sync_workflows()

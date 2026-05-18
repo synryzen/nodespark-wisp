@@ -84,6 +84,10 @@ class HubClient:
             "deviceName": self.device_name,
             "text": text,
             "source": "wisp-whisplay",
+            "platform": "Raspberry Pi Zero 2 W / PiSugar Whisplay",
+            "sessionId": f"whisplay:{self.device_id}",
+            "voice": True,
+            "capabilities": ["display", "speaker", "microphone", "button", "rgb", "assistant", "workflow"],
         }
         return self._request("POST", "/wisp/assistant", json=payload)
 

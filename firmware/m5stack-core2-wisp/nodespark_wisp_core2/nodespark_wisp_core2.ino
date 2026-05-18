@@ -510,16 +510,28 @@ void askAssistant(const String& prompt = "Give a short exciting demo of what Nod
   body += "\"text\":\"" + jsonEscape(prompt) + "\",";
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
   body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
-  body += "\"platform\":\"M5Stack Core2\"";
+  body += "\"platform\":\"M5Stack Core2 / NodeSpark Wisp\",";
+  body += "\"sessionId\":\"core2:" + jsonEscape(deviceId) + "\",";
+  body += "\"voice\":true,";
+  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"imu\",\"haptic\",\"battery\",\"rtc\",\"sd\",\"assistant\",\"workflow\"]";
   body += "}";
   showCard("Ask AI", "Sending to NodeSparkHub assistant...", C_PINK);
   HttpResult res = httpRequest("POST", "/wisp/assistant", body);
   if (res.status >= 200 && res.status < 300) {
     DynamicJsonDocument doc(4096);
     DeserializationError err = deserializeJson(doc, res.body);
-    String reply = !err && doc["reply"].is<const char*>() ? doc["reply"].as<String>() : res.body;
+    String reply = !err && doc["displayText"].is<const char*>() ? doc["displayText"].as<String>() : "";
+    if (!reply.length()) reply = !err && doc["reply"].is<const char*>() ? doc["reply"].as<String>() : res.body;
+    String speechText = !err && doc["speechText"].is<const char*>() ? doc["speechText"].as<String>() : reply;
     lastStatus = "Assistant answered";
     showCard("Wisp Assistant", reply.substring(0, 240), C_PINK);
+    if (sdReady && speechText.length()) {
+      File file = SD.open("/nodespark-core2.log", FILE_APPEND);
+      if (file) {
+        file.printf("%lu assistant %s\n", millis(), speechText.substring(0, 96).c_str());
+        file.close();
+      }
+    }
     playChime(C_PINK);
     return;
   }

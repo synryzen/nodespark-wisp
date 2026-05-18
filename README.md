@@ -95,8 +95,9 @@ Current Wisp capabilities:
 - Show animated listening, thinking, running, success, and error screens.
 - Show text messages from NodeSparkHub.
 - Show rich branded cards with icons, subtitles, accent colors, and progress.
-- Ask NodeSparkHub's selected AI profile through the Wisp Assistant endpoint,
-  with workflow fallback when direct AI is not configured.
+- Ask NodeSparkHub's default AI profile through the Wisp Assistant endpoint for
+  general questions, troubleshooting, brainstorming, and workflow help, with
+  workflow fallback when direct AI is not configured.
 - Show approval prompts where short press approves and hold rejects.
 - Show a notification center with recent Hub alerts.
 - Show compact dashboards with metrics and list items.
@@ -107,7 +108,8 @@ Current Wisp capabilities:
 - Select the active Hub workflow from NodeSparkHub and save it on the ESP32 Wisp.
 - Sync live NodeSparkHub workflows onto the Wisp so the device cycles real Hub
   workflows instead of only static config favorites.
-- Speak text from Hub through the onboard speaker when `espeak-ng` is installed.
+- Speak Hub text and Wisp Assistant AI replies through the Raspberry Pi
+  Whisplay speaker when `espeak-ng` is installed.
 - Play startup, listening, success, and error chimes when audio is available.
 - Adjust Whisplay speaker volume remotely from NodeSparkHub.
 - Set the RGB LED color from Hub commands.

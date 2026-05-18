@@ -2104,7 +2104,11 @@ bool askHubAssistant(const String& text) {
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
   body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
   body += "\"text\":\"" + jsonEscape(text) + "\",";
-  body += "\"source\":\"wisp-esp32-touch\"}";
+  body += "\"source\":\"wisp-esp32-touch\",";
+  body += "\"platform\":\"ESP32-S3 / NodeSpark Wisp Touch\",";
+  body += "\"sessionId\":\"esp32:" + jsonEscape(deviceId) + "\",";
+  body += "\"voice\":true,";
+  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"assistant\",\"workflow\",\"sd\"]}";
 
   String payload = request("POST", "/wisp/assistant", body);
   if (!payload.length()) return false;
@@ -2115,15 +2119,19 @@ bool askHubAssistant(const String& text) {
     return false;
   }
 
-  String reply = doc["reply"].as<String>();
+  String reply = doc["displayText"].as<String>();
+  if (!reply.length()) reply = doc["reply"].as<String>();
   if (!reply.length()) reply = doc["message"].as<String>();
   if (!reply.length()) reply = doc["error"].as<String>();
   if (!reply.length()) reply = "NodeSparkHub AI answered with an empty response.";
+  String speechText = doc["speechText"].as<String>();
+  if (!speechText.length()) speechText = doc["reply"].as<String>();
 
   lastStatus = doc["ok"].as<bool>() ? "AI assistant answered." : "AI assistant error.";
   showCard(doc["ok"].as<bool>() ? "Wisp Assistant" : "AI Setup Needed", reply.substring(0, 220), doc["ok"].as<bool>() ? C_PINK : C_AMBER);
   if (doc["ok"].as<bool>()) {
     playChime(1);
+    if (speechText.length()) appendSdLog("assistant_speech", speechText.substring(0, 80));
     appendSdLog("assistant_reply", reply.substring(0, 80));
   }
   return true;

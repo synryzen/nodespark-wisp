@@ -16,9 +16,9 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
 - Use the touchscreen for pairing, navigation, local demos, and approvals.
 - Scan for Wi-Fi, enter the Wi-Fi password, and edit the Hub URL plus optional
   port on the touchscreen.
-- Use `Ask AI` to send a prompt into NodeSparkHub's selected AI profile through
-  the `Wisp Assistant` endpoint, with workflow fallback when direct AI is not
-  configured.
+- Use `Ask AI` to send a prompt into NodeSparkHub's default AI profile through
+  the `Wisp Assistant` endpoint for general questions, Hub help, and workflow
+  ideas, with workflow fallback when direct AI is not configured.
 - Select and save the active Hub workflow from NodeSparkHub commands.
 - Play I2S chimes through the MAX98357 amp.
 - Show a live microphone level from the INMP441.

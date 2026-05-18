@@ -13,7 +13,8 @@ Whisplay and ESP32-S3 builds:
 - Poll Hub commands.
 - Acknowledge command results.
 - Run a selected Hub workflow.
-- Ask NodeSparkHub's Wisp Assistant endpoint, with workflow fallback.
+- Ask NodeSparkHub's default AI profile through the Wisp Assistant endpoint for
+  general questions, Hub help, and workflow ideas, with workflow fallback.
 
 ## Hardware Needed
 
@@ -90,7 +91,7 @@ Screens:
 - Hub pairing, check-ins, command polling, and command acknowledgements.
 - Rich display commands, notifications, dashboards, QR/link text, and approvals.
 - Workflow launch from the Core2.
-- Ask AI through NodeSparkHub.
+- Ask AI through NodeSparkHub using the shared Wisp Assistant response format.
 - Speaker chimes with volume control.
 - Microphone level visualization.
 - Battery and charging display.
