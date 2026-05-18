@@ -10,6 +10,7 @@
 #include <WiFiClientSecure.h>
 #include <XPT2046_Touchscreen.h>
 #include "driver/i2s.h"
+#include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "mascot_logo.h"
 
@@ -53,6 +54,9 @@
 #endif
 #ifndef WISP_HTTP_TIMEOUT_MS
 #define WISP_HTTP_TIMEOUT_MS 2500
+#endif
+#ifndef WISP_MAX_SPEECH_WAV_BYTES
+#define WISP_MAX_SPEECH_WAV_BYTES 1572864
 #endif
 #ifndef WISP_WIFI_CONNECT_TIMEOUT_MS
 #define WISP_WIFI_CONNECT_TIMEOUT_MS 7000
@@ -317,6 +321,7 @@ struct HubCommand {
 
 void askAssistant(const String& text);
 bool askHubAssistant(const String& text);
+bool playSpeechClip(const String& speechPath);
 String commandBody(const HubCommand& command, const String& fallback = "");
 String commandTitle(const HubCommand& command, const String& fallback);
 void playChime(int kind);
@@ -1629,6 +1634,191 @@ void playChime(int kind = 0) {
   appendSdLog("tone", "volume " + String(audioVolumePercent));
 }
 
+static uint16_t readLe16(const uint8_t* p) {
+  return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+
+static uint32_t readLe32(const uint8_t* p) {
+  return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+bool fetchHubBinary(const String& path, uint8_t** outData, size_t* outLen) {
+  *outData = nullptr;
+  *outLen = 0;
+  if (!WiFi.isConnected()) {
+    lastStatus = "No Wi-Fi for speech.";
+    return false;
+  }
+
+  String url = path.startsWith("http") ? path : hubUrl + path;
+  HTTPClient http;
+  http.setTimeout(max(8000, WISP_HTTP_TIMEOUT_MS));
+  http.setReuse(false);
+  bool started = false;
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  if (url.startsWith("https://")) {
+    secure.setInsecure();
+    started = http.begin(secure, url);
+  } else {
+    started = http.begin(plain, url);
+  }
+  if (!started) {
+    lastStatus = "Speech URL failed.";
+    return false;
+  }
+
+  http.addHeader("Accept", "audio/wav");
+  http.addHeader("User-Agent", APP_VERSION);
+  http.addHeader("X-NodeSparkHub-Device-ID", deviceId);
+  http.addHeader("X-NodeSparkHub-Device-Name", deviceName);
+  if (token.length()) {
+    http.addHeader("Authorization", "Bearer " + token);
+    http.addHeader("X-NodeSparkHub-Token", token);
+  }
+
+  int code = http.GET();
+  int size = http.getSize();
+  if (code < 200 || code >= 300 || size <= 0 || size > WISP_MAX_SPEECH_WAV_BYTES) {
+    lastStatus = code > 0 ? "Speech HTTP " + String(code) : "Speech offline.";
+    http.end();
+    return false;
+  }
+
+  uint8_t* data = (uint8_t*)ps_malloc(size);
+  if (!data) data = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_8BIT);
+  if (!data) {
+    lastStatus = "Speech RAM low.";
+    http.end();
+    return false;
+  }
+
+  WiFiClient* stream = http.getStreamPtr();
+  int readTotal = 0;
+  uint32_t start = millis();
+  while (readTotal < size && millis() - start < 15000) {
+    int available = stream->available();
+    if (available > 0) {
+      int chunk = min(available, size - readTotal);
+      int got = stream->readBytes(data + readTotal, chunk);
+      if (got > 0) {
+        readTotal += got;
+        start = millis();
+      }
+    } else {
+      delay(2);
+      yield();
+    }
+  }
+  http.end();
+
+  if (readTotal != size) {
+    free(data);
+    lastStatus = "Speech download cut short.";
+    return false;
+  }
+  *outData = data;
+  *outLen = (size_t)size;
+  return true;
+}
+
+bool playSpeechClip(const String& speechPath) {
+#if !WISP_ENABLE_AUDIO
+  (void)speechPath;
+  lastStatus = "Speech needs audio enabled.";
+  return false;
+#else
+  if (!speechPath.length()) return false;
+  if (!ampReady) {
+    lastStatus = "Amp not ready for speech.";
+    return false;
+  }
+  if (ampMuted || audioVolumePercent <= 0) {
+    lastStatus = ampMuted ? "Amp muted." : "Volume is 0%.";
+    return false;
+  }
+
+  showCard("Wisp Voice", "Downloading Hub speech...", C_PINK);
+  uint8_t* wav = nullptr;
+  size_t wavLen = 0;
+  if (!fetchHubBinary(speechPath, &wav, &wavLen)) return false;
+
+  bool ok = false;
+  do {
+    if (wavLen < 44 || memcmp(wav, "RIFF", 4) != 0 || memcmp(wav + 8, "WAVE", 4) != 0) break;
+
+    uint16_t audioFormat = 0;
+    uint16_t channels = 0;
+    uint32_t sampleRate = 0;
+    uint16_t bitsPerSample = 0;
+    size_t dataOffset = 0;
+    size_t dataSize = 0;
+
+    size_t offset = 12;
+    while (offset + 8 <= wavLen) {
+      const uint8_t* chunk = wav + offset;
+      uint32_t chunkSize = readLe32(chunk + 4);
+      size_t chunkData = offset + 8;
+      if (chunkData + chunkSize > wavLen) break;
+      if (memcmp(chunk, "fmt ", 4) == 0 && chunkSize >= 16) {
+        audioFormat = readLe16(wav + chunkData);
+        channels = readLe16(wav + chunkData + 2);
+        sampleRate = readLe32(wav + chunkData + 4);
+        bitsPerSample = readLe16(wav + chunkData + 14);
+      } else if (memcmp(chunk, "data", 4) == 0) {
+        dataOffset = chunkData;
+        dataSize = chunkSize;
+        break;
+      }
+      offset = chunkData + chunkSize + (chunkSize & 1);
+    }
+
+    if (audioFormat != 1 || bitsPerSample != 16 || channels < 1 || channels > 2 || sampleRate < 8000 || !dataOffset || !dataSize) {
+      lastStatus = "Unsupported speech WAV.";
+      break;
+    }
+
+    i2s_set_sample_rates(I2S_NUM_0, sampleRate);
+    writeAmpSilence(80);
+    int16_t outFrames[192 * 2];
+    size_t pos = dataOffset;
+    size_t end = min(wavLen, dataOffset + dataSize);
+    int volume = constrain(audioVolumePercent, 0, 100);
+    while (pos + channels * 2 <= end) {
+      int frames = 0;
+      while (frames < 192 && pos + channels * 2 <= end) {
+        int16_t left = (int16_t)readLe16(wav + pos);
+        int16_t right = left;
+        pos += 2;
+        if (channels == 2) {
+          right = (int16_t)readLe16(wav + pos);
+          pos += 2;
+        }
+        left = (int16_t)(((int32_t)left * volume) / 100);
+        right = (int16_t)(((int32_t)right * volume) / 100);
+        outFrames[frames * 2] = left;
+        outFrames[frames * 2 + 1] = right;
+        frames++;
+      }
+      size_t written = 0;
+      i2s_write(I2S_NUM_0, outFrames, frames * 2 * sizeof(int16_t), &written, pdMS_TO_TICKS(250));
+      yield();
+    }
+    writeAmpSilence(220);
+    i2s_set_sample_rates(I2S_NUM_0, 22050);
+    lastStatus = "AI voice played.";
+    appendSdLog("speech_played", speechPath.substring(0, 64));
+    ok = true;
+  } while (false);
+
+  free(wav);
+  if (!ok) {
+    i2s_set_sample_rates(I2S_NUM_0, 22050);
+  }
+  return ok;
+#endif
+}
+
 bool configureAmpOutput() {
 #if !WISP_ENABLE_AUDIO
   ampReady = false;
@@ -2126,11 +2316,16 @@ bool askHubAssistant(const String& text) {
   if (!reply.length()) reply = "NodeSparkHub AI answered with an empty response.";
   String speechText = doc["speechText"].as<String>();
   if (!speechText.length()) speechText = doc["reply"].as<String>();
+  String speechPath = doc["speechPath"].as<String>();
+  if (!speechPath.length()) speechPath = doc["speechURL"].as<String>();
+  bool shouldSpeak = !doc["shouldSpeak"].is<bool>() || doc["shouldSpeak"].as<bool>();
 
   lastStatus = doc["ok"].as<bool>() ? "AI assistant answered." : "AI assistant error.";
   showCard(doc["ok"].as<bool>() ? "Wisp Assistant" : "AI Setup Needed", reply.substring(0, 220), doc["ok"].as<bool>() ? C_PINK : C_AMBER);
   if (doc["ok"].as<bool>()) {
-    playChime(1);
+    if (!shouldSpeak || !speechPath.length() || !playSpeechClip(speechPath)) {
+      playChime(1);
+    }
     if (speechText.length()) appendSdLog("assistant_speech", speechText.substring(0, 80));
     appendSdLog("assistant_reply", reply.substring(0, 80));
   }

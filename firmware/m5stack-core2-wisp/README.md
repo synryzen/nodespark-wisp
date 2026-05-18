@@ -92,7 +92,7 @@ Screens:
 - Rich display commands, notifications, dashboards, QR/link text, and approvals.
 - Workflow launch from the Core2.
 - Ask AI through NodeSparkHub using the shared Wisp Assistant response format.
-- Speaker chimes with volume control.
+- Speaker chimes, volume control, and Hub-generated AI voice clip playback.
 - Microphone level visualization.
 - Battery and charging display.
 - IMU tilt readout.
@@ -102,9 +102,9 @@ Screens:
 ## Notes
 
 M5Unified shares audio resources between the internal speaker and microphone.
-The firmware briefly stops the microphone before playing a chime, then restarts
-mic capture afterward. This keeps audio more stable on Core2 than trying to use
-speaker and mic at the same instant.
+The firmware briefly stops the microphone before playing a chime or Wisp
+Assistant voice clip, then restarts mic capture afterward. This keeps audio more
+stable on Core2 than trying to use speaker and mic at the same instant.
 
 ## References
 

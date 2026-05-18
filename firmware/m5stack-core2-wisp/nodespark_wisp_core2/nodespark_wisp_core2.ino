@@ -26,6 +26,10 @@
 #define WISP_ENABLE_HAPTICS 1
 #endif
 
+#ifndef WISP_MAX_SPEECH_WAV_BYTES
+#define WISP_MAX_SPEECH_WAV_BYTES 1572864
+#endif
+
 #include "mascot_logo.h"
 
 static constexpr uint16_t C_BG = 0x0862;
@@ -357,6 +361,122 @@ HttpResult httpRequest(const String& method, const String& path, const String& b
   return result;
 }
 
+bool fetchHubBinary(const String& path, uint8_t** outData, size_t* outLen) {
+  *outData = nullptr;
+  *outLen = 0;
+  if (!WiFi.isConnected()) {
+    lastStatus = "Wi-Fi offline";
+    return false;
+  }
+  String base = trimTrailingSlash(hubBase);
+  if (!base.startsWith("http://") && !base.startsWith("https://")) {
+    base = "https://" + base;
+  }
+  String url = path.startsWith("http") ? path : base + path;
+  HTTPClient http;
+  http.setTimeout(max(9000, WISP_HTTP_TIMEOUT_MS));
+  bool ok = false;
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  if (url.startsWith("https://")) {
+    secure.setInsecure();
+    ok = http.begin(secure, url);
+  } else {
+    ok = http.begin(plain, url);
+  }
+  if (!ok) {
+    lastStatus = "Speech URL failed";
+    return false;
+  }
+  http.addHeader("Accept", "audio/wav");
+  http.addHeader("X-NodeSparkHub-Device-ID", deviceId);
+  http.addHeader("X-NodeSparkHub-Device-Name", deviceName);
+  if (token.length()) {
+    http.addHeader("Authorization", "Bearer " + token);
+  }
+  int code = http.GET();
+  int size = http.getSize();
+  if (code < 200 || code >= 300 || size <= 0 || size > WISP_MAX_SPEECH_WAV_BYTES) {
+    lastStatus = code > 0 ? "Speech HTTP " + String(code) : "Speech failed";
+    http.end();
+    return false;
+  }
+  uint8_t* data = (uint8_t*)ps_malloc(size);
+  if (!data) data = (uint8_t*)malloc(size);
+  if (!data) {
+    lastStatus = "Speech RAM low";
+    http.end();
+    return false;
+  }
+  WiFiClient* stream = http.getStreamPtr();
+  int readTotal = 0;
+  uint32_t start = millis();
+  while (readTotal < size && millis() - start < 16000) {
+    M5.update();
+    int available = stream->available();
+    if (available > 0) {
+      int chunk = min(available, size - readTotal);
+      int got = stream->readBytes(data + readTotal, chunk);
+      if (got > 0) {
+        readTotal += got;
+        start = millis();
+      }
+    } else {
+      delay(2);
+    }
+  }
+  http.end();
+  if (readTotal != size) {
+    free(data);
+    lastStatus = "Speech download cut short";
+    return false;
+  }
+  *outData = data;
+  *outLen = (size_t)size;
+  return true;
+}
+
+bool playSpeechClip(const String& speechPath) {
+#if !WISP_ENABLE_SPEAKER
+  (void)speechPath;
+  lastStatus = "Speaker disabled";
+  return false;
+#else
+  if (!speechPath.length()) return false;
+  stopMic();
+  if (!speakerReady) {
+    speakerReady = M5.Speaker.begin();
+  }
+  if (!speakerReady) {
+    startMic();
+    lastStatus = "Speaker not ready";
+    return false;
+  }
+  showCard("Wisp Voice", "Downloading Hub speech...", C_PINK);
+  uint8_t* wav = nullptr;
+  size_t wavLen = 0;
+  if (!fetchHubBinary(speechPath, &wav, &wavLen)) {
+    startMic();
+    return false;
+  }
+  M5.Speaker.setVolume((uint8_t)constrain(volumeLevel, 0, 255));
+  bool started = M5.Speaker.playWav(wav, wavLen, 1, -1, true);
+  if (started) {
+    uint32_t start = millis();
+    while (M5.Speaker.isPlaying() && millis() - start < 45000) {
+      M5.update();
+      delay(20);
+    }
+    lastStatus = "AI voice played";
+  } else {
+    lastStatus = "Speech playback failed";
+  }
+  free(wav);
+  startMic();
+  return started;
+#endif
+}
+
 bool connectWifi(bool draw = true) {
   if (WiFi.isConnected()) return true;
   if (!wifiSsid.length()) {
@@ -523,6 +643,9 @@ void askAssistant(const String& prompt = "Give a short exciting demo of what Nod
     String reply = !err && doc["displayText"].is<const char*>() ? doc["displayText"].as<String>() : "";
     if (!reply.length()) reply = !err && doc["reply"].is<const char*>() ? doc["reply"].as<String>() : res.body;
     String speechText = !err && doc["speechText"].is<const char*>() ? doc["speechText"].as<String>() : reply;
+    String speechPath = !err && doc["speechPath"].is<const char*>() ? doc["speechPath"].as<String>() : "";
+    if (!speechPath.length()) speechPath = !err && doc["speechURL"].is<const char*>() ? doc["speechURL"].as<String>() : "";
+    bool shouldSpeak = err || !doc["shouldSpeak"].is<bool>() || doc["shouldSpeak"].as<bool>();
     lastStatus = "Assistant answered";
     showCard("Wisp Assistant", reply.substring(0, 240), C_PINK);
     if (sdReady && speechText.length()) {
@@ -532,7 +655,9 @@ void askAssistant(const String& prompt = "Give a short exciting demo of what Nod
         file.close();
       }
     }
-    playChime(C_PINK);
+    if (!shouldSpeak || !speechPath.length() || !playSpeechClip(speechPath)) {
+      playChime(C_PINK);
+    }
     return;
   }
   showCard("Ask AI", "Direct AI did not answer. Trying the workflow fallback.", C_AMBER);

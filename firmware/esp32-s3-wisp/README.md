@@ -20,7 +20,7 @@ It uses the same NodeSparkHub device protocol as the Raspberry Pi Wisp:
   the `Wisp Assistant` endpoint for general questions, Hub help, and workflow
   ideas, with workflow fallback when direct AI is not configured.
 - Select and save the active Hub workflow from NodeSparkHub commands.
-- Play I2S chimes through the MAX98357 amp.
+- Play I2S chimes and Hub-generated AI voice clips through the MAX98357 amp.
 - Show a live microphone level from the INMP441.
 - Trigger a Hub workflow from the touchscreen.
 
@@ -175,9 +175,10 @@ writes do not interrupt display or network work.
 - ESP32-S3 BLE bridge is experimental and disabled by default for stability.
   Use the Raspberry Pi Wisp for production Bluetooth Mobile Bridge demos until
   the ESP32 build moves to a lighter BLE stack.
-- The MAX98357 path currently plays chimes. Full text-to-speech needs either a
-  Hub audio endpoint, an onboard speech synthesis library, or iPhone bridge
-  forwarding.
+- Full AI voice playback uses NodeSparkHub's Wisp Assistant speech clip URL.
+  The firmware downloads the short PCM WAV reply and streams it over I2S to the
+  MAX98357 amplifier. If the clip is unavailable, the device falls back to the
+  existing chime plus on-screen text.
 - The INMP441 path currently shows live level and can trigger a workflow event.
   Raw audio upload/transcription should be added after NodeSparkHub exposes a
   small-device audio upload endpoint.

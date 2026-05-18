@@ -108,8 +108,9 @@ Current Wisp capabilities:
 - Select the active Hub workflow from NodeSparkHub and save it on the ESP32 Wisp.
 - Sync live NodeSparkHub workflows onto the Wisp so the device cycles real Hub
   workflows instead of only static config favorites.
-- Speak Hub text and Wisp Assistant AI replies through the Raspberry Pi
-  Whisplay speaker when `espeak-ng` is installed.
+- Speak Hub text and Wisp Assistant AI replies. Raspberry Pi Wisp can use local
+  `espeak-ng`; ESP32-S3 and Core2 can play Hub-generated PCM WAV speech clips
+  returned by NodeSparkHub's Wisp Assistant endpoint.
 - Play startup, listening, success, and error chimes when audio is available.
 - Adjust Whisplay speaker volume remotely from NodeSparkHub.
 - Set the RGB LED color from Hub commands.
