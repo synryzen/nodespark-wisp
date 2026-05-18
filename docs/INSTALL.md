@@ -1,7 +1,7 @@
 # Install NodeSpark Wisp
 
 NodeSpark Wisp runs on a Raspberry Pi Zero 2 W with the PiSugar Whisplay HAT.
-The repo also includes an ESP32-S3 touch-screen firmware build.
+The repo also includes ESP32-S3 and M5Stack Core2 touch-screen firmware builds.
 
 ## Requirements
 
@@ -202,3 +202,45 @@ from NodeSparkHub `Settings -> Hub Server -> Devices`, and tapping `Pair`.
 The ESP32-S3 build uses the 16 MB / 3 MB app partition because Bluetooth
 Mobile Bridge, HTTPS Hub access, touchscreen UI, and display graphics no longer
 fit in the default 1.2 MB app partition.
+
+## M5Stack Core2 Build
+
+The M5Stack Core2 build uses the hardware already built into the Core2:
+
+- 2-inch 320x240 touch display
+- Built-in speaker amplifier
+- Built-in microphone
+- Built-in vibration motor
+- Built-in battery and power management
+- Built-in IMU, RTC, and SD card slot
+
+No display, touch, mic, amp, battery, or SD wiring is required.
+
+Create the firmware config:
+
+```bash
+cp firmware/m5stack-core2-wisp/nodespark_wisp_core2/config.example.h \
+  firmware/m5stack-core2-wisp/nodespark_wisp_core2/config.h
+```
+
+Edit `config.h` with Wi-Fi and the NodeSparkHub URL. A local LAN Hub URL looks
+like `http://192.168.1.241:8787`; a remote Cloudflare URL can look like
+`https://nodespark.msidragon.com`.
+
+Compile:
+
+```bash
+bash scripts/build_m5stack_core2.sh
+```
+
+Upload with Arduino CLI:
+
+```bash
+arduino-cli upload \
+  -p /dev/cu.usbserial-XXXX \
+  --fqbn esp32:esp32:m5stack-core2:PartitionScheme=default,PSRAM=enabled \
+  firmware/m5stack-core2-wisp/nodespark_wisp_core2
+```
+
+After upload, open `Pair` on the Core2 touch screen, enter the device code from
+NodeSparkHub `Settings -> Hub Server -> Devices`, and tap `Pair`.

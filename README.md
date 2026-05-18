@@ -34,6 +34,8 @@ Use it to:
 - Demo NodeSparkHub at a desk, booth, store, classroom, or client meeting.
 - Trigger Hub workflows from a real button.
 - Navigate a touch-first ESP32-S3 Wisp interface.
+- Run a premium M5Stack Core2 Wisp with built-in touch, speaker, mic, haptics,
+  battery, IMU, RTC, and SD card support.
 - Send live workflow output from NodeSparkHub to a Raspberry Pi display.
 - Speak Hub responses through the device speaker.
 - Capture short voice commands and send them into Hub workflows.
@@ -87,6 +89,8 @@ Current Wisp capabilities:
 - Check in automatically so Hub can show connection status.
 - Run on Raspberry Pi Zero 2 W with PiSugar Whisplay HAT.
 - Run on ESP32-S3 N16R8 with ILI9341 touch display, MAX98357 amp, and INMP441 mic.
+- Run on M5Stack Core2 using the built-in touch screen, speaker, microphone,
+  vibration motor, battery monitor, IMU, RTC, and SD slot.
 - Show the NodeSpark mascot as a startup logo.
 - Show animated listening, thinking, running, success, and error screens.
 - Show text messages from NodeSparkHub.
@@ -119,14 +123,16 @@ Current Wisp capabilities:
 
 ## Hardware Targets
 
-NodeSpark Wisp now has two hardware builds:
+NodeSpark Wisp now has three hardware builds:
 
 - **Whisplay Wisp**: Raspberry Pi Zero 2 W + PiSugar Whisplay HAT.
 - **ESP32-S3 Wisp Touch**: ESP32-S3 N16R8 + 2.8-inch ILI9341 touch TFT +
   MAX98357 I2S amp + INMP441 I2S mic.
+- **M5Stack Core2 Wisp**: M5Stack Core2 with built-in 2-inch touch screen,
+  speaker amp, microphone, vibration motor, battery, IMU, RTC, and SD slot.
 
-Both builds pair with NodeSparkHub, appear in Hub Server device settings, poll
-Hub commands, and acknowledge command results.
+All three builds pair with NodeSparkHub, appear in Hub Server device settings,
+poll Hub commands, and acknowledge command results.
 
 ## Raspberry Pi Hardware Needed
 
@@ -191,6 +197,36 @@ items, notifications, icon grids, QR/link screens, startup logo screens, device
 health checks, I2S chimes, and INMP441 mic level testing. ESP32-S3 Bluetooth
 Mobile Bridge code is present but disabled by default for stability; use the
 Raspberry Pi Wisp for reliable iPhone BLE bridge demos today.
+
+## M5Stack Core2 Hardware Needed
+
+The M5Stack Core2 build is the easiest premium microcontroller Wisp because the
+interactive hardware is already inside the unit.
+
+Parts:
+
+- M5Stack Core2
+- USB-C cable
+- Optional microSD card, 16 GB or smaller recommended
+- Wi-Fi network reachable by NodeSparkHub, or an HTTPS/Cloudflare Hub URL
+
+Firmware guide:
+
+```text
+firmware/m5stack-core2-wisp/README.md
+```
+
+Build check from this repo:
+
+```bash
+bash scripts/build_m5stack_core2.sh
+```
+
+The Core2 firmware supports the NodeSpark mascot startup screen, touch
+navigation, virtual hardware buttons, Hub pairing, automatic check-ins, command
+polling, approvals, rich cards, Ask AI, workflow launch, speaker chimes, haptic
+feedback, volume control, mic level visualization, battery/charging status, IMU
+readings, and SD card health logging.
 
 ## Quick Install
 
