@@ -68,10 +68,10 @@ fi
 python3 -m venv --system-site-packages /opt/nodespark-wisp/.venv
 /opt/nodespark-wisp/.venv/bin/pip install --upgrade pip wheel
 /opt/nodespark-wisp/.venv/bin/pip install -r /opt/nodespark-wisp/requirements.txt
-/opt/nodespark-wisp/.venv/bin/pip install -e /opt/nodespark-wisp
+/opt/nodespark-wisp/.venv/bin/pip install -e '/opt/nodespark-wisp[ble]'
 /opt/nodespark-wisp/.venv/bin/pip install pygame spidev gpiod || true
 
+systemctl enable bluetooth.service || true
 systemctl enable nodespark-wisp-firstboot.service
 systemctl enable nodespark-wisp.service
 EOF
-

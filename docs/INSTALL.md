@@ -19,7 +19,8 @@ automation history, and iPhone Mobile Bridge forwarding.
 ## Option A: Flash The NodeSpark Wisp Raspberry Pi Image
 
 The customer-friendly install path is the custom NodeSpark Wisp Raspberry Pi OS
-image. It boots with Wisp already installed and enabled.
+image. It boots with Wisp already installed and enabled, including the optional
+Bluetooth LE dependency used by Wisp Mobile Bridge.
 
 To use it:
 
@@ -113,7 +114,9 @@ bash scripts/send_demo_command.sh <device-id> demo
 
 ## Optional Wisp Mobile Bridge
 
-To let NodeSpark on iPhone connect to the Wisp over Bluetooth LE, install the optional BLE dependency and enable bridge mode:
+To let NodeSpark on iPhone connect to the Wisp over Bluetooth LE, enable bridge
+mode. The custom Raspberry Pi image already includes the BLE dependency; manual
+installs can install it with the command below.
 
 ```bash
 /opt/nodespark-wisp/.venv/bin/pip install 'nodespark-wisp[ble]'

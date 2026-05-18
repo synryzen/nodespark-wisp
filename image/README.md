@@ -12,6 +12,7 @@ Raspberry Pi Zero 2 W plus the PiSugar Whisplay HAT.
 - Whisplay display, button, speaker, microphone, QR, workflow, and Hub command
   software
 - Python runtime dependencies installed in `/opt/nodespark-wisp/.venv`
+- Bluetooth LE Mobile Bridge dependencies installed for NodeSpark iOS pairing
 - SPI and I2C enabled in the Raspberry Pi boot config
 - A first-boot helper that can copy `nodespark-wisp.toml` from the boot
   partition into `/etc/nodespark-wisp/config.toml`
@@ -67,3 +68,29 @@ runs from `workflow_dispatch`.
 If no boot config is supplied, the device still boots into Wisp mode and shows
 the startup/pairing UI. Configure `/etc/nodespark-wisp/config.toml` over SSH
 after the first boot.
+
+## Bluetooth Mobile Bridge
+
+The image includes the optional BLE dependencies used by Wisp Mobile Bridge.
+Bluetooth is still off in the default Wisp config so the standard Wi-Fi/Hub
+connection is the first-run path.
+
+To let NodeSpark on iPhone connect directly to the Pi Wisp, edit:
+
+```bash
+sudo nano /etc/nodespark-wisp/config.toml
+```
+
+Set:
+
+```toml
+[bluetooth]
+enabled = true
+device_name = "NodeSpark Wisp"
+```
+
+Then restart:
+
+```bash
+sudo systemctl restart nodespark-wisp
+```

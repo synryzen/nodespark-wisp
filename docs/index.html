@@ -107,10 +107,10 @@
           <p class="section-kicker">Hardware</p>
           <h2 id="hardware-title">Three physical builds: Whisplay, ESP32-S3 Touch, and M5Stack Core2.</h2>
           <p>
-            Start with the OpenClaw-style Raspberry Pi Whisplay stack, or build the
-            lower-cost ESP32-S3 touch version with a 2.8-inch ILI9341 display.
-            For a polished no-wiring microcontroller build, flash the M5Stack
-            Core2 firmware.
+            Choose the Wisp that matches your build. The Raspberry Pi Whisplay
+            version is the polished pocket demo with a custom OS image, the
+            ESP32-S3 version is the flexible touch prototype, and the M5Stack
+            Core2 version is the easiest all-in-one touchscreen device.
           </p>
           <figure class="hardware-photo">
             <img src="assets/wisp-whisplay-startup.jpg" alt="NodeSpark Wisp running on a PiSugar Whisplay HAT">
@@ -120,30 +120,36 @@
         <div class="hardware-cards">
           <article>
             <h3>Whisplay Wisp</h3>
+            <p>Best for the finished sales demo: startup mascot, speaker, mic, button, battery, and reliable iPhone Bluetooth bridge.</p>
             <ul class="check-list compact">
               <li>Raspberry Pi Zero 2 W</li>
               <li>PiSugar Whisplay HAT with 1.69-inch LCD</li>
               <li>Whisplay speaker, microphone, RGB LED, and button</li>
               <li>PiSugar battery pack</li>
             </ul>
+            <a href="https://github.com/synryzen/nodespark-wisp/blob/main/image/README.md">Custom Pi image guide</a>
           </article>
           <article>
             <h3>ESP32-S3 Wisp Touch</h3>
+            <p>Best for low-cost touch panels, custom enclosures, wall controls, and breadboard experiments.</p>
             <ul class="check-list compact">
               <li>ESP32-S3 N16R8 USB-C board</li>
               <li>ILI9341 2.8-inch SPI TFT touch display</li>
               <li>MAX98357 I2S amplifier and speaker</li>
               <li>INMP441 I2S microphone</li>
             </ul>
+            <a href="https://github.com/synryzen/nodespark-wisp/tree/main/firmware/esp32-s3-wisp">ESP32-S3 firmware and wiring</a>
           </article>
           <article>
             <h3>M5Stack Core2 Wisp</h3>
+            <p>Best for a premium no-wiring microcontroller Wisp with built-in touch, battery, sound, mic, haptics, and sensors.</p>
             <ul class="check-list compact">
               <li>M5Stack Core2 with 2-inch touch display</li>
               <li>Built-in speaker, mic, haptics, battery, IMU, RTC, and SD slot</li>
               <li>No custom display/audio wiring required</li>
               <li>Premium touch-first Wisp firmware</li>
             </ul>
+            <a href="https://github.com/synryzen/nodespark-wisp/tree/main/firmware/m5stack-core2-wisp">Core2 firmware guide</a>
           </article>
         </div>
       </section>

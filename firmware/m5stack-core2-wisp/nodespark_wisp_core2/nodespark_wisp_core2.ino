@@ -59,6 +59,7 @@ static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr int NAV_Y = 206;
 static constexpr int NAV_H = 34;
+static constexpr const char* APP_VERSION = "nodespark-wisp-core2/0.2.0";
 #if WISP_ENABLE_BLE
 static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";
@@ -372,6 +373,7 @@ HttpResult httpRequest(const String& method, const String& path, const String& b
     return result;
   }
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("User-Agent", APP_VERSION);
   http.addHeader("X-NodeSparkHub-Device-ID", deviceId);
   http.addHeader("X-NodeSparkHub-Device-Name", deviceName);
   if (token.length()) {
@@ -418,6 +420,7 @@ bool fetchHubBinary(const String& path, uint8_t** outData, size_t* outLen) {
     return false;
   }
   http.addHeader("Accept", "audio/wav");
+  http.addHeader("User-Agent", APP_VERSION);
   http.addHeader("X-NodeSparkHub-Device-ID", deviceId);
   http.addHeader("X-NodeSparkHub-Device-Name", deviceName);
   if (token.length()) {
@@ -578,6 +581,7 @@ void checkIn() {
   body += "\"name\":\"" + jsonEscape(deviceName) + "\",";
   body += "\"platform\":\"M5Stack Core2 / NodeSpark Wisp\",";
   body += "\"osVersion\":\"Arduino ESP32\",";
+  body += "\"appVersion\":\"" + String(APP_VERSION) + "\",";
   body += "\"ipAddress\":\"" + (WiFi.isConnected() ? WiFi.localIP().toString() : String("")) + "\",";
   body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"imu\",\"haptic\",\"battery\",\"rtc\",\"sd\",\"approval\",\"dashboard\",\"deviceCommands\",\"workflow\",\"assistant\"]";
   body += "}";
@@ -596,6 +600,7 @@ void pairWithCode() {
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
   body += "\"deviceName\":\"" + jsonEscape(deviceName) + "\",";
   body += "\"platform\":\"M5Stack Core2 / NodeSpark Wisp\",";
+  body += "\"appVersion\":\"" + String(APP_VERSION) + "\",";
   body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"imu\",\"haptic\",\"battery\",\"rtc\",\"sd\",\"approval\",\"dashboard\",\"deviceCommands\",\"workflow\",\"assistant\"]";
   body += "}";
   showCard("Pairing", "Sending code to NodeSparkHub...", C_BLUE);

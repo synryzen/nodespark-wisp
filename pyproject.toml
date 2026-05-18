@@ -1,6 +1,6 @@
 [project]
 name = "nodespark-wisp"
-version = "0.1.0"
+version = "0.2.0"
 description = "NodeSparkHub client for Raspberry Pi Zero 2 W + PiSugar Whisplay HAT"
 requires-python = ">=3.10"
 dependencies = [

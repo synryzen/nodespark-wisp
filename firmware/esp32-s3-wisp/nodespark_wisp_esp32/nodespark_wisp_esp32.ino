@@ -107,7 +107,7 @@ static constexpr int PIN_MIC_SD = 18;
 
 static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
-static constexpr const char* APP_VERSION = "nodespark-wisp-esp32/0.1.0";
+static constexpr const char* APP_VERSION = "nodespark-wisp-esp32/0.2.0";
 #if WISP_ENABLE_BLE
 static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";

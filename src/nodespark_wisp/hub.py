@@ -33,7 +33,7 @@ class HubClient:
             "deviceName": self.device_name,
             "platform": platform,
             "osVersion": _linux_pretty_name(),
-            "appVersion": "nodespark-wisp/0.1.0",
+            "appVersion": "nodespark-wisp/0.2.0",
         }
         return self._request("POST", "/pair", json=payload, auth=False)
 
@@ -43,7 +43,7 @@ class HubClient:
             "name": self.device_name,
             "platform": "Raspberry Pi Zero 2 W / NodeSpark Wisp",
             "osVersion": _linux_pretty_name(),
-            "appVersion": "nodespark-wisp/0.1.0",
+            "appVersion": "nodespark-wisp/0.2.0",
             "capabilities": [
                 "run",
                 "workflows",
@@ -113,7 +113,7 @@ class HubClient:
             raise HubError("Hub base_url is not configured.")
         headers = {
             "Accept": "application/json",
-            "User-Agent": "nodespark-wisp/0.1.0",
+            "User-Agent": "nodespark-wisp/0.2.0",
             "X-NodeSparkHub-Device-ID": self.device_id,
             "X-NodeSparkHub-Device-Name": self.device_name,
         }

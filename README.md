@@ -140,7 +140,28 @@ NodeSpark Wisp now has three hardware builds:
 All three builds pair with NodeSparkHub, appear in Hub Server device settings,
 poll Hub commands, and acknowledge command results.
 
-## Raspberry Pi Hardware Needed
+## Choose Your Wisp Build
+
+Pick the build that matches the hardware in front of you:
+
+| Device | Best for | Start here |
+| --- | --- | --- |
+| Raspberry Pi Whisplay Wisp | The polished pocket demo with mascot startup, speaker, mic, button, battery, custom OS image, and reliable iPhone BLE bridge | [Raspberry Pi Whisplay Wisp](#raspberry-pi-whisplay-wisp) |
+| ESP32-S3 Wisp Touch | Lower-cost touch panels, breadboard prototypes, wall controls, and custom screen sizes | [ESP32-S3 Wisp Touch](#esp32-s3-wisp-touch) |
+| M5Stack Core2 Wisp | Easiest all-in-one touchscreen build with built-in speaker, mic, haptics, battery, IMU, RTC, SD slot, and iPhone BLE bridge | [M5Stack Core2 Wisp](#m5stack-core2-wisp) |
+
+Shared features across the three builds:
+
+- NodeSparkHub pairing and connected-device status.
+- Hub command polling and command acknowledgements.
+- Rich cards, dashboard screens, approvals, notifications, QR/link screens,
+  workflow launch, Ask AI, and Wisp Assistant replies.
+- Bluetooth Mobile Bridge with NodeSpark iOS. Raspberry Pi and Core2 are the
+  recommended BLE demo devices; ESP32-S3 keeps BLE opt-in for stability.
+
+## Raspberry Pi Whisplay Wisp
+
+### Hardware Needed
 
 This software targets the same hardware stack used by OpenClaw-style DIY
 assistants:
@@ -170,7 +191,25 @@ Recommended software/runtime:
 Important: this project uses the same physical hardware style as OpenClaw, but
 it is NodeSparkHub companion software. OpenClaw is not required.
 
-## ESP32-S3 Touch Hardware Needed
+### Custom Raspberry Pi OS Image
+
+The Raspberry Pi build has a custom image recipe in [image/README.md](image/README.md).
+The image installs NodeSpark Wisp, the boot service, Whisplay dependencies,
+Bluetooth Mobile Bridge dependencies, and a first-boot helper that can read
+`nodespark-wisp.toml` from the boot partition.
+
+Build the image from this repo on Linux or Docker:
+
+```bash
+bash scripts/build_pi_image.sh
+```
+
+After flashing, users set Wi-Fi and login details in Raspberry Pi Imager, boot
+with the Whisplay HAT attached, then pair from NodeSparkHub.
+
+## ESP32-S3 Wisp Touch
+
+### Hardware Needed
 
 The ESP32-S3 build is a lower-cost touch-first Wisp variant. It is great for
 larger screens, handheld demo panels, wall controls, and future battery builds.
@@ -205,7 +244,9 @@ Bridge BLE protocol when `WISP_ENABLE_BLE` is enabled. ESP32-S3 Bluetooth stays
 opt-in because some boards become unstable when BLE, Wi-Fi, HTTPS, I2S, and TFT
 UI are all active.
 
-## M5Stack Core2 Hardware Needed
+## M5Stack Core2 Wisp
+
+### Hardware Needed
 
 The M5Stack Core2 build is the easiest premium microcontroller Wisp because the
 interactive hardware is already inside the unit.
