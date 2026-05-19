@@ -59,7 +59,7 @@ static constexpr int SCREEN_W = 320;
 static constexpr int SCREEN_H = 240;
 static constexpr int NAV_Y = 206;
 static constexpr int NAV_H = 34;
-static constexpr const char* APP_VERSION = "nodespark-wisp-core2/0.2.0";
+static constexpr const char* APP_VERSION = "nodespark-wisp-core2/0.3.0";
 #if WISP_ENABLE_BLE
 static constexpr const char* BLE_SERVICE_UUID = "4E530001-4E53-5749-5350-000000000001";
 static constexpr const char* BLE_COMMAND_UUID = "4E530002-4E53-5749-5350-000000000001";

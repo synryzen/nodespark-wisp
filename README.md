@@ -91,10 +91,20 @@ The current app-side intelligence layer adds:
 
 - Wisp Assistant access to NodeSparkHub's default AI profile.
 - Local assistant memory for more helpful follow-up responses.
+- Auto Context so recent memory and workflow clues can be layered into AI
+  requests without changing workflow JSON.
+- Knowledge Vault controls for keeping useful setup notes, assistant answers,
+  and Wisp troubleshooting context reviewable.
 - Token compression so long device/workflow context can be sent more cleanly.
 - Prompt safety checks before Hub or device-originated AI requests are sent.
 - Smart model routing hints for extraction, classification, JSON, creative, and
   general assistant tasks.
+- Proactive suggestions that guide users toward Hub pairing, Wisp setup,
+  workflow creation, and AI model readiness.
+- Voice Everywhere controls for natural commands across workflow running,
+  workflow creation, debugging, Hub status, Wisp help, and general AI questions.
+- Device Presence awareness so assistant replies can account for Raspberry Pi
+  Whisplay, ESP32-S3 Touch, M5Stack Core2, and iPhone Mobile Bridge contexts.
 - A Hub setting to turn Wisp Assistant access on or off without breaking normal
   device pairing, command polling, workflow launches, or Bluetooth Mobile Bridge.
 
@@ -452,6 +462,26 @@ Supported Wisp command types:
 
 Wisp-originated assistant requests use `POST /wisp/assistant` and return text
 plus optional speech audio when NodeSparkHub can synthesize a voice response.
+
+Run a full Mac-side smoke check before demos:
+
+```bash
+scripts/wisp_smoke_test.py
+```
+
+That verifies Hub health, workflow listing, registered Wisp devices, and the
+direct Wisp Assistant AI path. When a device is powered on and freshly checked
+in, queue the command suite:
+
+```bash
+scripts/wisp_smoke_test.py --send --all-wisp
+```
+
+Or target one known device:
+
+```bash
+scripts/wisp_smoke_test.py --send --device-id <device-id>
+```
 
 Raw rich-card example:
 

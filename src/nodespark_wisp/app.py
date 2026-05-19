@@ -4,6 +4,7 @@ import queue
 import signal
 import threading
 import time
+import uuid
 from typing import Any
 from urllib.parse import quote
 
@@ -248,7 +249,7 @@ class NodeSparkWispApp:
                 rgb = self._rgb(command, (60, 130, 255))
                 self.display.show(title, body, "Sent from NodeSparkHub", rgb, self._status_footer())
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "displayed")
+                self._ack_command(command_id, "completed", "displayed")
             elif kind in {"card", "alert", "success", "warning", "error", "ai", "voice", "timer", "weather", "statuscard", "promo"}:
                 title = str(command.get("title") or self._title_for_kind(kind))
                 body = self._command_text(command)
@@ -259,13 +260,13 @@ class NodeSparkWispApp:
                 progress = command.get("progress")
                 self.display.show_card(title, body, subtitle, icon, style, rgb, self._status_footer(), progress if isinstance(progress, (int, float)) else None)
                 self._chime("error" if style == "error" else "success")
-                self.hub.ack_command(command_id, "completed", f"{style} card shown")
+                self._ack_command(command_id, "completed", f"{style} card shown")
             elif kind in {"graphic", "graphics", "icons", "icongrid"}:
                 title = str(command.get("title") or "NodeSparkHub")
                 items = self._items(command) or ["workflow", "ai", "phone", "webhook", "alert", "done"]
                 self.display.show_icon_grid(title, items, self._rgb(command, (60, 130, 255)), self._status_footer())
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "graphics shown")
+                self._ack_command(command_id, "completed", "graphics shown")
             elif kind in {"dashboard", "metrics", "monitor"}:
                 title = str(command.get("title") or "Live Workflow")
                 label = str(command.get("metricLabel") or "Status")
@@ -276,7 +277,7 @@ class NodeSparkWispApp:
                     items = [f"{key}: {value}" for key, value in list(payload.items())[:5]]
                 self.display.show_dashboard(title, label, value, items, self._rgb(command, (45, 160, 255)), self._status_footer())
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "dashboard shown")
+                self._ack_command(command_id, "completed", "dashboard shown")
             elif kind in {"health", "status", "devicehealth"}:
                 status = read_status()
                 items = [
@@ -288,7 +289,7 @@ class NodeSparkWispApp:
                 ]
                 self.display.show_dashboard("Device Health", "Wisp", "Ready", items, self._rgb(command, (35, 190, 95)), self._status_footer(force=True))
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "health shown")
+                self._ack_command(command_id, "completed", "health shown")
             elif kind in {"notify", "notification", "inbox"}:
                 note = {
                     "title": str(command.get("title") or "NodeSparkHub"),
@@ -299,7 +300,7 @@ class NodeSparkWispApp:
                 self.notifications = self.notifications[-10:]
                 self.display.show_notification_stack("Notification Center", self.notifications, self._rgb(command, (45, 160, 255)), self._status_footer())
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", f"{len(self.notifications)} notifications saved")
+                self._ack_command(command_id, "completed", f"{len(self.notifications)} notifications saved")
             elif kind in {"approval", "approve", "approvalcard", "decision"}:
                 self.pending_approval = command
                 title = str(command.get("title") or "Approval Needed")
@@ -313,7 +314,7 @@ class NodeSparkWispApp:
                 self._chime("success")
                 if self.cfg.speech.enabled:
                     self.audio.speak(text, self.cfg.speech.voice, self.cfg.speech.rate)
-                self.hub.ack_command(command_id, "completed", "spoken")
+                self._ack_command(command_id, "completed", "spoken")
             elif kind in {"volume", "setvolume", "speakerVolume", "speakervolume"}:
                 raw = command.get(
                     "percent",
@@ -336,7 +337,7 @@ class NodeSparkWispApp:
                     self._status_footer(force=True),
                 )
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", f"volume={actual}%")
+                self._ack_command(command_id, "completed", f"volume={actual}%")
             elif kind in {"mute", "silence"}:
                 actual = self.audio.set_volume(0)
                 self.display.show_dashboard(
@@ -347,7 +348,7 @@ class NodeSparkWispApp:
                     self._rgb(command, (120, 90, 255)),
                     self._status_footer(force=True),
                 )
-                self.hub.ack_command(command_id, "completed", "muted")
+                self._ack_command(command_id, "completed", "muted")
             elif kind in {"brightness", "screenbrightness"}:
                 requested = str(command.get("percent") or command.get("value") or command.get("body") or "86")
                 self.display.show_dashboard(
@@ -358,7 +359,7 @@ class NodeSparkWispApp:
                     self._rgb(command, (255, 210, 80)),
                     self._status_footer(force=True),
                 )
-                self.hub.ack_command(command_id, "completed", f"brightness request={requested}%")
+                self._ack_command(command_id, "completed", f"brightness request={requested}%")
             elif kind in {"mictest", "mic", "microphone"}:
                 self.display.show_dashboard(
                     "Microphone Check",
@@ -369,7 +370,7 @@ class NodeSparkWispApp:
                     self._status_footer(force=True),
                 )
                 self._chime("listen")
-                self.hub.ack_command(command_id, "completed", "mic check shown")
+                self._ack_command(command_id, "completed", "mic check shown")
             elif kind in {"sdcheck", "storage"}:
                 self.display.show_dashboard(
                     "Storage Check",
@@ -380,12 +381,12 @@ class NodeSparkWispApp:
                     self._status_footer(force=True),
                 )
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "storage shown")
+                self._ack_command(command_id, "completed", "storage shown")
             elif kind in {"led", "rgb", "setled"}:
                 rgb = self._rgb(command, (60, 130, 255))
                 self.display.set_rgb(*rgb)
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", f"rgb={rgb}")
+                self._ack_command(command_id, "completed", f"rgb={rgb}")
             elif kind in {"runworkflow", "run", "workflow"}:
                 self._sync_workflows()
                 workflow = str(command.get("workflowName") or self.current_workflow())
@@ -395,7 +396,7 @@ class NodeSparkWispApp:
                 self._animate("Hub Command", f"Running {workflow}", (255, 180, 50), seconds=0.6)
                 response = self._await_run_result(self.hub.run_workflow_async(workflow, payload))
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", f"runId={response.get('runId', '')}")
+                self._ack_command(command_id, "completed", f"runId={response.get('runId', '')}")
             elif kind in {"workflows", "workflowlist", "listworkflows"}:
                 self._sync_workflows()
                 items = self.workflow_names[:5]
@@ -409,7 +410,7 @@ class NodeSparkWispApp:
                     self._status_footer(force=True),
                 )
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", ",".join(self.workflow_names[:10]))
+                self._ack_command(command_id, "completed", ",".join(self.workflow_names[:10]))
             elif kind in {"assistant", "ask", "askai"}:
                 text = self._command_text(command) or "Help me from NodeSpark Wisp."
                 self._animate("Wisp Assistant", "Asking NodeSparkHub AI", self._rgb(command, (120, 90, 255)), seconds=0.7)
@@ -422,7 +423,7 @@ class NodeSparkWispApp:
                     if ok and response.get("shouldSpeak", True):
                         self.audio.speak(speech, self.cfg.speech.voice, self.cfg.speech.rate)
                     self._chime("success" if ok else "error")
-                    self.hub.ack_command(command_id, "completed" if ok else "failed", str(response.get("reply") or reply)[:500])
+                    self._ack_command(command_id, "completed" if ok else "failed", str(response.get("reply") or reply)[:500])
                 except Exception as exc:
                     print(f"[assistant] direct Hub assistant unavailable: {exc}")
                     self._sync_workflows()
@@ -440,43 +441,52 @@ class NodeSparkWispApp:
                     ok = status in {"success", "running"}
                     self.display.show_card("Wisp Assistant", reply[:280], workflow, "ai", "ai" if ok else "warning", self._rgb(command, (120, 90, 255)), self._status_footer(force=True))
                     self._chime("success" if ok else "error")
-                    self.hub.ack_command(command_id, "completed" if ok else "failed", reply[:500])
+                    self._ack_command(command_id, "completed" if ok else "failed", reply[:500])
             elif kind in {"selectworkflow", "select"}:
                 self._sync_workflows()
                 name = str(command.get("workflowName") or command.get("body") or command.get("text") or "")
                 if name in self.workflow_names:
                     self.selected_index = self.workflow_names.index(name)
                 self.display.show("Workflow", self.current_workflow(), "Selected by Hub", (80, 210, 130), self._status_footer())
-                self.hub.ack_command(command_id, "completed", self.current_workflow())
+                self._ack_command(command_id, "completed", self.current_workflow())
             elif kind == "ping":
                 self.display.show("Ping", "NodeSparkHub is talking to this device.", self.cfg.device.name, (35, 190, 95), self._status_footer(force=True))
                 self._chime("success")
-                self.hub.ack_command(command_id, "completed", "pong")
+                self._ack_command(command_id, "completed", "pong")
             elif kind in {"splash", "logo", "startup"}:
                 subtitle = str(command.get("body") or command.get("text") or "NodeSparkHub physical node")
                 self.display.show_startup_logo(subtitle[:80], "Sent from NodeSparkHub", self.cfg.display.startup_logo_path, self._status_footer())
                 self._chime("startup")
-                self.hub.ack_command(command_id, "completed", "logo")
+                self._ack_command(command_id, "completed", "logo")
             elif kind in {"qr", "pairingqr"}:
                 qr_data = str(command.get("qrData") or command.get("text") or command.get("body") or "")
                 if qr_data:
                     self.display.show_qr(str(command.get("title") or "NodeSparkHub QR"), qr_data, str(command.get("subtitle") or "Scan to open"), self._rgb(command, (0, 190, 255)), self._status_footer(force=True))
                 else:
                     self._show_pairing_qr()
-                self.hub.ack_command(command_id, "completed", "qr")
+                self._ack_command(command_id, "completed", "qr")
             elif kind in {"demo", "showcase", "salesdemo"}:
                 self._run_demo_sequence(command)
-                self.hub.ack_command(command_id, "completed", "demo played")
+                self._ack_command(command_id, "completed", "demo played")
             else:
-                self.hub.ack_command(command_id, "ignored", f"unknown type {kind}")
+                self._ack_command(command_id, "ignored", f"unknown type {kind}")
         except Exception as exc:
             if command_id:
                 try:
-                    self.hub.ack_command(command_id, "failed", str(exc)[:500])
+                    self._ack_command(command_id, "failed", str(exc)[:500])
                 except Exception:
                     pass
             self._chime("error")
             self.display.show("Command Error", str(exc)[:180], kind, (255, 70, 70), self._status_footer())
+
+    def _ack_command(self, command_id: str, status: str = "completed", result: str = "") -> None:
+        if not command_id:
+            return
+        try:
+            uuid.UUID(command_id)
+        except ValueError:
+            return
+        self.hub.ack_command(command_id, status, result)
 
     def _voice_command(self) -> None:
         try:
@@ -522,7 +532,7 @@ class NodeSparkWispApp:
         self._chime("success" if approved else "error")
 
         if command_id:
-            self.hub.ack_command(command_id, "completed", result)
+            self._ack_command(command_id, "completed", result)
 
         workflow = str(command.get("workflowName") or "")
         if workflow:

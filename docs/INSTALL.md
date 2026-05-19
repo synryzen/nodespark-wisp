@@ -109,12 +109,14 @@ journalctl -u nodespark-wisp -f
 From the Mac running NodeSparkHub:
 
 ```bash
+scripts/wisp_smoke_test.py
 curl http://127.0.0.1:8787/devices
 ```
 
 Copy the Wisp device ID, then:
 
 ```bash
+scripts/wisp_smoke_test.py --send --device-id <device-id>
 bash scripts/send_demo_command.sh <device-id> card "NodeSparkHub is now controlling NodeSpark Wisp."
 bash scripts/send_demo_command.sh <device-id> dashboard
 bash scripts/send_demo_command.sh <device-id> demo

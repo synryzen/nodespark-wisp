@@ -6,6 +6,8 @@ from urllib.parse import quote
 
 import requests
 
+from . import __version__
+
 
 class HubError(RuntimeError):
     pass
@@ -33,7 +35,7 @@ class HubClient:
             "deviceName": self.device_name,
             "platform": platform,
             "osVersion": _linux_pretty_name(),
-            "appVersion": "nodespark-wisp/0.2.0",
+            "appVersion": f"nodespark-wisp/{__version__}",
         }
         return self._request("POST", "/pair", json=payload, auth=False)
 
@@ -43,7 +45,7 @@ class HubClient:
             "name": self.device_name,
             "platform": "Raspberry Pi Zero 2 W / NodeSpark Wisp",
             "osVersion": _linux_pretty_name(),
-            "appVersion": "nodespark-wisp/0.2.0",
+            "appVersion": f"nodespark-wisp/{__version__}",
             "capabilities": [
                 "run",
                 "workflows",
@@ -58,6 +60,14 @@ class HubClient:
                 "qr",
                 "approval",
                 "dashboard",
+                "assistant",
+                "voice",
+                "volume",
+                "health",
+                "icons",
+                "showcase",
+                "storage",
+                "mobileBridge",
             ],
         }
         return self._request("POST", "/devices/checkin", json=payload)
@@ -113,7 +123,7 @@ class HubClient:
             raise HubError("Hub base_url is not configured.")
         headers = {
             "Accept": "application/json",
-            "User-Agent": "nodespark-wisp/0.2.0",
+            "User-Agent": f"nodespark-wisp/{__version__}",
             "X-NodeSparkHub-Device-ID": self.device_id,
             "X-NodeSparkHub-Device-Name": self.device_name,
         }
