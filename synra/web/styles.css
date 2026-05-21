@@ -103,241 +103,207 @@ body {
 
 .avatar-shell {
   position: relative;
-  width: min(54vh, 520px);
-  height: min(86vh, 820px);
+  width: min(70vh, 680px);
+  height: min(90vh, 900px);
   display: grid;
   place-items: center;
 }
 
-.synra {
+.synra-portrait {
   position: relative;
-  width: 290px;
-  height: 640px;
+  width: min(62vh, 640px);
+  max-width: 82vw;
+  height: auto;
   animation: breathe 3.7s ease-in-out infinite;
-  filter: drop-shadow(0 0 32px rgba(76, 201, 255, 0.34));
-}
-
-.back-hair {
-  position: absolute;
-  left: 50%;
-  top: 68px;
-  width: 220px;
-  height: 330px;
-  transform: translateX(-50%);
-  border-radius: 46% 46% 38% 38%;
-  background: linear-gradient(145deg, #131621, #05070c 64%, #111a2e);
-  box-shadow: inset 26px -10px 0 rgba(76, 201, 255, 0.12), inset -18px 0 0 rgba(155, 92, 255, 0.14);
-}
-
-.front-hair {
-  position: absolute;
-  left: 50%;
-  top: 64px;
-  width: 186px;
-  height: 96px;
-  transform: translateX(-50%);
-  border-radius: 48% 48% 22% 22%;
-  background:
-    linear-gradient(115deg, transparent 48%, rgba(76, 201, 255, 0.38) 50%, transparent 52%),
-    linear-gradient(160deg, #111420, #06070d 68%);
-  clip-path: polygon(0 0, 100% 0, 96% 78%, 74% 48%, 61% 92%, 49% 42%, 31% 88%, 22% 50%, 6% 84%);
-  z-index: 4;
-}
-
-.headset {
-  position: absolute;
-  top: 118px;
-  width: 42px;
-  height: 76px;
-  border-radius: 18px;
-  background: linear-gradient(160deg, #151d2b, #06080e);
-  border: 1px solid rgba(76, 201, 255, 0.42);
-  box-shadow: 0 0 18px rgba(76, 201, 255, 0.2);
-  z-index: 6;
-}
-
-.headset.left {
-  left: 34px;
-  transform: rotate(-5deg);
-}
-
-.headset.right {
-  right: 34px;
-  transform: rotate(5deg);
-}
-
-.face {
-  position: absolute;
-  left: 50%;
-  top: 88px;
-  width: 154px;
-  height: 186px;
-  transform: translateX(-50%);
-  border-radius: 48% 48% 44% 44%;
-  background: linear-gradient(160deg, #ffe3d5, #d99d9b);
-  box-shadow: inset -11px -12px 0 rgba(95, 34, 62, 0.12), 0 0 24px rgba(255, 219, 209, 0.1);
-  z-index: 5;
-}
-
-.eyes,
-.brows {
-  position: absolute;
-  left: 26px;
-  right: 26px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.eyes {
-  top: 82px;
-}
-
-.eye {
-  width: 36px;
-  height: 17px;
-  border-radius: 60% 60% 48% 48%;
-  background:
-    radial-gradient(circle at 60% 48%, #f8ffff 0 2px, transparent 3px),
-    radial-gradient(circle at 50% 50%, #65f6ff 0 4px, #5d4dff 9px, #1a1030 14px);
-  border-top: 3px solid #17101b;
-  box-shadow: 0 0 12px rgba(76, 201, 255, 0.5);
-}
-
-.brows {
-  top: 70px;
-}
-
-.brows span {
-  width: 32px;
-  height: 4px;
-  border-radius: 8px;
-  background: #1a111d;
-}
-
-.mouth {
-  position: absolute;
-  left: 50%;
-  top: 128px;
-  width: 26px;
-  height: 10px;
-  transform: translateX(-50%);
-  border-bottom: 3px solid #7c2f46;
-  border-radius: 0 0 30px 30px;
-}
-
-.neck {
-  position: absolute;
-  left: 50%;
-  top: 250px;
-  width: 48px;
-  height: 46px;
-  transform: translateX(-50%);
-  background: #d99d9b;
-  z-index: 3;
-}
-
-.body {
-  position: absolute;
-  left: 50%;
-  top: 286px;
-  width: 190px;
-  height: 270px;
-  transform: translateX(-50%);
-  border-radius: 42px 42px 34px 34px;
-  background: linear-gradient(145deg, #111726, #090b12);
-  border: 1px solid rgba(76, 201, 255, 0.3);
-  overflow: hidden;
+  filter: drop-shadow(0 0 42px rgba(76, 201, 255, 0.35)) drop-shadow(0 30px 80px rgba(0, 0, 0, 0.55));
   z-index: 2;
 }
 
-.jacket {
-  position: absolute;
-  top: 0;
-  width: 82px;
-  height: 250px;
-  background: linear-gradient(160deg, rgba(76, 201, 255, 0.82), rgba(155, 92, 255, 0.22));
-  clip-path: polygon(0 0, 100% 0, 72% 100%, 0 82%);
+.synra-portrait .aura-lines path {
+  fill: none;
+  stroke: rgba(76, 201, 255, 0.34);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 10 18;
+  animation: dashFlow 8s linear infinite;
 }
 
-.left-panel {
-  left: 0;
+.synra-portrait .back-hair path:first-child,
+.synra-portrait .side-lock,
+.synra-portrait .front-hair path:first-child,
+.synra-portrait .front-hair .bang {
+  fill: url(#hairInk);
+  stroke: rgba(119, 239, 255, 0.16);
+  stroke-width: 2;
 }
 
-.right-panel {
-  right: 0;
-  transform: scaleX(-1);
+.synra-portrait .hair-gloss,
+.synra-portrait .front-hair .highlight {
+  fill: none;
+  stroke: url(#hairShine);
+  stroke-width: 12;
+  stroke-linecap: round;
+  opacity: 0.62;
 }
 
-.core {
-  position: absolute;
-  left: 50%;
-  top: 42px;
-  width: 74px;
-  height: 172px;
-  transform: translateX(-50%);
-  border-radius: 36px;
-  background: linear-gradient(180deg, #111725, #05070d);
-  border: 1px solid rgba(255, 209, 102, 0.28);
+.synra-portrait .hair-gloss.broad {
+  stroke-width: 16;
+  opacity: 0.34;
 }
 
-.node-glyph {
-  position: absolute;
-  left: 50%;
-  top: 28px;
-  width: 60px;
-  height: 60px;
-  transform: translateX(-50%);
-  border: 2px solid var(--cyan);
-  border-radius: 50%;
-  box-shadow: 0 0 20px rgba(76, 201, 255, 0.42);
+.synra-portrait .front-hair .highlight {
+  stroke-width: 7;
+  opacity: 0.76;
 }
 
-.node-glyph::before,
-.node-glyph::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 14px var(--gold);
+.synra-portrait .body-layer .shadow {
+  fill: rgba(0, 0, 0, 0.36);
 }
 
-.node-glyph::before {
-  left: 8px;
-  top: 18px;
+.synra-portrait .left-arm,
+.synra-portrait .right-arm,
+.synra-portrait .jacket {
+  fill: url(#suitMain);
+  stroke: rgba(94, 229, 255, 0.24);
+  stroke-width: 2;
 }
 
-.node-glyph::after {
-  right: 10px;
-  bottom: 14px;
+.synra-portrait .torso,
+.synra-portrait .bodice {
+  fill: #05060b;
+  stroke: rgba(255, 209, 102, 0.22);
+  stroke-width: 2;
 }
 
-.arm {
-  position: absolute;
-  top: 326px;
-  width: 42px;
-  height: 210px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #121725, #090b11);
-  border: 1px solid rgba(76, 201, 255, 0.24);
-  z-index: 1;
+.synra-portrait .collar {
+  fill: url(#cyanEdge);
+  stroke: rgba(240, 250, 255, 0.18);
+  stroke-width: 2;
 }
 
-.left-arm {
-  left: 21px;
-  transform: rotate(9deg);
+.synra-portrait .node-core circle:first-child {
+  fill: rgba(5, 9, 18, 0.92);
+  stroke: #6ff6ff;
+  stroke-width: 3;
 }
 
-.right-arm {
-  right: 21px;
-  transform: rotate(-9deg);
+.synra-portrait .node-core circle:not(:first-child) {
+  fill: #ffd166;
+}
+
+.synra-portrait .node-core path {
+  fill: none;
+  stroke: rgba(111, 246, 255, 0.78);
+  stroke-width: 3;
+}
+
+.synra-portrait .neck,
+.synra-portrait .face {
+  fill: url(#skinGlow);
+}
+
+.synra-portrait .neck-shadow {
+  fill: rgba(135, 60, 84, 0.2);
+}
+
+.synra-portrait .face {
+  stroke: rgba(255, 244, 232, 0.26);
+  stroke-width: 2;
+}
+
+.synra-portrait .blush {
+  fill: rgba(255, 105, 147, 0.2);
+  filter: blur(1px);
+}
+
+.synra-portrait .nose {
+  fill: none;
+  stroke: rgba(110, 54, 72, 0.42);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.synra-portrait .headset-layer .band {
+  fill: none;
+  stroke: rgba(96, 238, 255, 0.5);
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.synra-portrait .headset-layer .ear path {
+  fill: #11182a;
+  stroke: rgba(96, 238, 255, 0.52);
+  stroke-width: 3;
+}
+
+.synra-portrait .headset-layer .ear circle {
+  fill: rgba(76, 201, 255, 0.18);
+  stroke: #66f0ff;
+  stroke-width: 3;
+}
+
+.synra-portrait .brow {
+  fill: none;
+  stroke: #17101b;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: transform 180ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.synra-portrait .eye .lash {
+  fill: #120b18;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.synra-portrait .iris {
+  fill: url(#eyeGlow);
+  stroke: rgba(138, 247, 255, 0.72);
+  stroke-width: 2;
+}
+
+.synra-portrait .pupil {
+  fill: #050511;
+}
+
+.synra-portrait .shine {
+  fill: #fff;
+}
+
+.synra-portrait .mouth {
+  fill: none;
+  stroke: #833249;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.synra-portrait .mouth.talk,
+.synra-portrait .mouth.concerned {
+  opacity: 0;
+}
+
+.synra-portrait .spark-accessories .choker,
+.synra-portrait .node-line {
+  fill: none;
+  stroke: rgba(106, 245, 255, 0.7);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.synra-portrait .spark {
+  fill: #ffd166;
+  filter: url(#softGlow);
 }
 
 .platform {
   position: absolute;
   left: 50%;
-  bottom: 28px;
+  bottom: 6px;
   width: 420px;
   height: 94px;
   transform: translateX(-50%);
@@ -520,24 +486,61 @@ h1 {
   background: rgba(255, 77, 109, 0.34);
 }
 
-[data-mode="speaking"] .mouth {
+[data-mode="listening"] .synra-portrait .iris {
+  filter: drop-shadow(0 0 9px rgba(103, 245, 255, 0.95));
+}
+
+[data-mode="thinking"] .synra-portrait,
+[data-mode="workflow_running"] .synra-portrait {
+  animation-duration: 2.4s;
+}
+
+[data-mode="speaking"] .synra-portrait .mouth.idle,
+[data-mode="speaking"] .synra-portrait .mouth.concerned {
+  opacity: 0;
+}
+
+[data-mode="speaking"] .synra-portrait .mouth.talk {
+  opacity: 1;
+  fill: rgba(91, 24, 51, 0.52);
   animation: talk 320ms ease-in-out infinite;
 }
 
-[data-expression="concerned"] .brows span:first-child,
-[data-mode="error"] .brows span:first-child {
-  transform: rotate(12deg);
+[data-expression="concerned"] .synra-portrait .mouth.idle,
+[data-mode="error"] .synra-portrait .mouth.idle {
+  opacity: 0;
 }
 
-[data-expression="raised_brow"] .brows span:last-child,
-[data-mode="approval_needed"] .brows span:last-child {
-  transform: translateY(-7px) rotate(-8deg);
+[data-expression="concerned"] .synra-portrait .mouth.concerned,
+[data-mode="error"] .synra-portrait .mouth.concerned {
+  opacity: 1;
 }
 
-[data-expression="wink"] .right-eye,
-[data-mode="success"] .right-eye {
-  height: 5px;
-  margin-top: 6px;
+[data-expression="concerned"] .synra-portrait .brow.left,
+[data-mode="error"] .synra-portrait .brow.left {
+  transform: rotate(11deg) translateY(4px);
+}
+
+[data-expression="concerned"] .synra-portrait .brow.right,
+[data-mode="error"] .synra-portrait .brow.right {
+  transform: rotate(-11deg) translateY(4px);
+}
+
+[data-expression="raised_brow"] .synra-portrait .brow.right,
+[data-mode="approval_needed"] .synra-portrait .brow.right {
+  transform: translateY(-12px) rotate(-8deg);
+}
+
+[data-expression="focused"] .synra-portrait .brow.left,
+[data-expression="focused"] .synra-portrait .brow.right {
+  transform: translateY(7px);
+}
+
+[data-expression="wink"] .synra-portrait .right-eye,
+[data-mode="success"] .synra-portrait .right-eye {
+  transform: translateY(9px) scaleY(0.16);
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @keyframes breathe {
@@ -560,8 +563,12 @@ h1 {
 }
 
 @keyframes talk {
-  0%, 100% { height: 10px; border-bottom-width: 3px; }
-  50% { height: 18px; border-bottom-width: 8px; }
+  0%, 100% { transform: scaleY(0.78); }
+  50% { transform: scaleY(1.16); }
+}
+
+@keyframes dashFlow {
+  to { stroke-dashoffset: -56; }
 }
 
 @media (max-width: 900px) {

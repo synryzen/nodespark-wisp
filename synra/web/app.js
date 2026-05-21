@@ -25,6 +25,8 @@ const demoText = {
 async function fetchState() {
   try {
     const response = await fetch("/api/state", { cache: "no-store" });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || !contentType.includes("application/json")) return;
     const data = await response.json();
     if (data.ok) renderState(data.state);
   } catch (error) {
