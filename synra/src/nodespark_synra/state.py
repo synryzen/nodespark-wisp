@@ -35,6 +35,8 @@ class SynraState:
     message: str = "NodeSparkHub is waiting for a workflow."
     subtitle: str = "Synra online"
     card: SynraCard = field(default_factory=SynraCard)
+    speech_text: str = ""
+    speech_id: str = ""
     last_command: str = ""
     updated_at: float = field(default_factory=time.time)
 
@@ -50,6 +52,10 @@ class SynraState:
             self.subtitle = str(values["subtitle"])
         if "last_command" in values:
             self.last_command = str(values["last_command"])
+        if "speech_text" in values:
+            self.speech_text = str(values["speech_text"])
+        if "speech_id" in values:
+            self.speech_id = str(values["speech_id"])
         if isinstance(values.get("card"), dict):
             self.card = SynraCard(**{**asdict(self.card), **values["card"]})
         self.updated_at = time.time()
@@ -77,12 +83,15 @@ class SynraStateMachine:
         title = str(command.get("title") or "NodeSparkHub")
 
         if normalized in {"speak", "say", "speech", "tts"}:
+            speech_id = command_id or f"speech-{time.time():.3f}"
             self.state.update({
                 "mode": "speaking",
                 "expression": str(command.get("expression") or "bright"),
                 "message": text or "Synra is speaking.",
                 "subtitle": str(command.get("subtitle") or "Voice reply"),
                 "last_command": command_id or kind,
+                "speech_text": text,
+                "speech_id": speech_id,
                 "card": {
                     "title": title if title != "NodeSparkHub" else "Synra",
                     "body": text,
@@ -191,4 +200,3 @@ class SynraStateMachine:
             },
         })
         return "card-shown", self.snapshot()
-

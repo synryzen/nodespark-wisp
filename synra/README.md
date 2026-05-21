@@ -21,12 +21,53 @@ Current capabilities:
   runs, assistant calls, and command acknowledgements.
 - Command handlers for `speak`, `setExpression`, `setState`, `showCard`,
   `approval`, `assistant`, and `runWorkflow`.
+- Browser speech output when Synra receives a `speak` command.
 - Jetson-friendly Python daemon with no browser framework dependency.
+
+## Install On Existing Jetson OS
+
+Synra is an app for the normal Jetson Ubuntu desktop. It does not replace the
+operating system, reflash the board, or take over the machine.
+
+On the Jetson:
+
+```bash
+cd nodespark-wisp/synra
+bash scripts/install_jetson_app.sh
+```
+
+Then edit:
+
+```text
+/etc/nodespark-synra/config.toml
+```
+
+Set `hub.base_url` to the Mac or server running NodeSparkHub. The daemon runs as
+a user systemd service:
+
+```bash
+systemctl --user status nodespark-synra
+systemctl --user restart nodespark-synra
+```
+
+Open the monitor UI:
+
+```text
+http://127.0.0.1:8788
+```
+
+To launch Synra full-screen whenever the Jetson desktop user logs in:
+
+```bash
+bash /opt/nodespark-synra/scripts/install_desktop_autostart.sh
+```
+
+That installs a normal desktop autostart entry for Chromium/Chrome kiosk mode.
 
 ## Run Locally
 
 ```bash
-cd "NodeSparkHub Synra Device"
+cd synra
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e .
@@ -87,4 +128,3 @@ error
 approval_needed
 sleep
 ```
-

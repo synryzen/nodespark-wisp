@@ -9,6 +9,8 @@ const cardDetail = document.getElementById("cardDetail");
 const progressBar = document.getElementById("progressBar");
 const modeStrip = document.getElementById("modeStrip");
 
+let lastSpeechId = "";
+
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
   thinking: "Give me a second. I’m tracing the best workflow path.",
@@ -57,6 +59,26 @@ function renderState(state) {
     item.style.borderColor = active ? "rgba(76, 201, 255, 0.9)" : "";
     item.style.background = active ? "rgba(76, 201, 255, 0.16)" : "";
   });
+
+  maybeSpeak(state);
+}
+
+function maybeSpeak(state) {
+  const speechText = (state.speech_text || "").trim();
+  const speechId = state.speech_id || "";
+  if (!speechText || !speechId || speechId === lastSpeechId) return;
+  lastSpeechId = speechId;
+  if (!("speechSynthesis" in window)) return;
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(speechText);
+  utterance.rate = 0.96;
+  utterance.pitch = 1.08;
+  utterance.volume = 1.0;
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find((voice) => /female|samantha|zira|google us english/i.test(voice.name));
+  if (preferred) utterance.voice = preferred;
+  window.speechSynthesis.speak(utterance);
 }
 
 async function sendDemo(mode) {
@@ -87,4 +109,3 @@ document.querySelectorAll("[data-demo]").forEach((button) => {
 
 fetchState();
 setInterval(fetchState, 650);
-

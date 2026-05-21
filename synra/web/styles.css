@@ -476,6 +476,12 @@ h1 {
   gap: 8px;
 }
 
+.voice-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .quick-actions button {
   cursor: pointer;
   font-weight: 700;
@@ -572,4 +578,3 @@ h1 {
     justify-content: flex-start;
   }
 }
-
