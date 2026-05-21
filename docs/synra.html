@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NodeSpark Synra</title>
+    <meta
+      name="description"
+      content="NodeSpark Synra is a Jetson-powered anime-style monitor companion for NodeSparkHub."
+    >
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      .synra-hero {
+        min-height: 92vh;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        gap: clamp(2rem, 5vw, 5rem);
+        align-items: center;
+      }
+
+      .synra-orbit {
+        position: relative;
+        min-height: 520px;
+        border: 1px solid rgba(109, 214, 255, 0.32);
+        border-radius: 8px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 28%, rgba(109, 214, 255, 0.25), transparent 28%),
+          radial-gradient(circle at 50% 72%, rgba(179, 91, 255, 0.22), transparent 30%),
+          linear-gradient(145deg, rgba(7, 13, 24, 0.92), rgba(11, 8, 20, 0.94));
+      }
+
+      .synra-orbit::before {
+        content: "Synra";
+        position: absolute;
+        inset: auto 0 1.8rem;
+        color: rgba(240, 248, 255, 0.08);
+        font-size: clamp(5rem, 16vw, 13rem);
+        font-weight: 800;
+        line-height: 0.8;
+        text-align: center;
+      }
+
+      .synra-avatar-mark {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: min(54vw, 340px);
+        height: min(72vh, 460px);
+        transform: translate(-50%, -50%);
+        border-radius: 46% 46% 34% 34%;
+        background:
+          radial-gradient(circle at 50% 24%, #ffe1d5 0 17%, transparent 18%),
+          linear-gradient(90deg, transparent 34%, rgba(76, 201, 255, 0.95) 35% 38%, transparent 39% 61%, rgba(155, 92, 255, 0.9) 62% 65%, transparent 66%),
+          linear-gradient(150deg, #151a2a 0 32%, #06070d 33% 100%);
+        box-shadow: 0 0 54px rgba(76, 201, 255, 0.28);
+      }
+
+      .synra-avatar-mark::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 9%;
+        width: 62%;
+        height: 30%;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: linear-gradient(145deg, #111420, #05060b);
+        clip-path: polygon(0 0, 100% 0, 96% 78%, 74% 48%, 61% 92%, 49% 42%, 31% 88%, 22% 50%, 6% 84%);
+      }
+
+      .synra-avatar-mark::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: 12%;
+        width: 54%;
+        height: 48%;
+        transform: translateX(-50%);
+        border-radius: 38px 38px 28px 28px;
+        background:
+          radial-gradient(circle at 50% 20%, rgba(255, 209, 102, 0.9) 0 7%, transparent 8%),
+          linear-gradient(135deg, rgba(76, 201, 255, 0.82), rgba(155, 92, 255, 0.28)),
+          #0b0e18;
+        border: 1px solid rgba(109, 214, 255, 0.36);
+      }
+
+      .synra-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      .hero-lede {
+        color: var(--muted);
+        font-size: clamp(1.1rem, 2vw, 1.35rem);
+        line-height: 1.55;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem;
+        margin-top: 2rem;
+      }
+
+      .synra-card {
+        min-height: 180px;
+        padding: 1.25rem;
+        border: 1px solid rgba(109, 214, 255, 0.22);
+        border-radius: 8px;
+        background: rgba(6, 12, 22, 0.72);
+      }
+
+      .synra-state-list {
+        columns: 2;
+      }
+
+      @media (max-width: 860px) {
+        .synra-hero,
+        .synra-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .synra-orbit {
+          min-height: 420px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero synra-hero">
+      <div class="hero-copy">
+        <p class="eyebrow">NodeSparkHub companion</p>
+        <h1>NodeSpark Synra</h1>
+        <p class="hero-lede">
+          Synra is a Jetson-powered on-screen AI companion for NodeSparkHub:
+          an original adult anime-style assistant who speaks, reacts, shows
+          workflow state, and turns Hub automation into a living monitor
+          presence.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/synryzen/nodespark-wisp/tree/main/synra">View Synra source</a>
+          <a class="button secondary" href="./">Back to Wisp</a>
+        </div>
+      </div>
+      <div class="synra-orbit" aria-label="Stylized Synra monitor concept">
+        <div class="synra-avatar-mark"></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section">
+        <p class="section-kicker">What it is</p>
+        <h2>Not a replacement OS. A normal Jetson app.</h2>
+        <p>
+          Synra runs on top of the existing Ubuntu install on the NVIDIA Jetson
+          Orin Nano. The Python daemon exposes a local API and serves a
+          full-screen browser monitor UI, so the Jetson can still be used like a
+          normal development machine.
+        </p>
+      </section>
+
+      <section class="section synra-grid">
+        <article class="card synra-card">
+          <h3>Avatar Presence</h3>
+          <p>
+            A full-screen monitor companion with idle, listening, thinking,
+            speaking, workflow, success, approval, warning, and error states.
+          </p>
+        </article>
+        <article class="card synra-card">
+          <h3>Hub Connected</h3>
+          <p>
+            Synra follows the same device pattern as Wisp: pair, check in, poll
+            commands, run workflows, ask the assistant, and acknowledge results.
+          </p>
+        </article>
+        <article class="card synra-card">
+          <h3>Jetson Ready</h3>
+          <p>
+            The Jetson can become the local body for voice, camera awareness,
+            local models, and the animated monitor UI while NodeSparkHub remains
+            the workflow brain.
+          </p>
+        </article>
+      </section>
+
+      <section class="section split">
+        <div>
+          <p class="section-kicker">Prototype</p>
+          <h2>First commands</h2>
+          <pre><code>cd synra
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .
+cp config.example.toml config.toml
+nodespark-synra --config config.toml</code></pre>
+        </div>
+        <div>
+          <p class="section-kicker">States</p>
+          <ul class="check-list synra-state-list">
+            <li>idle</li>
+            <li>listening</li>
+            <li>thinking</li>
+            <li>speaking</li>
+            <li>workflow_running</li>
+            <li>success</li>
+            <li>approval_needed</li>
+            <li>warning</li>
+            <li>error</li>
+            <li>sleep</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

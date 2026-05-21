@@ -1,0 +1,90 @@
+# NodeSpark Synra
+
+NodeSpark Synra is the Jetson-powered monitor companion for NodeSparkHub.
+It turns Hub workflows into a living on-screen AI presence: an adult original
+anime-style assistant who listens, speaks, reacts, runs workflows, and shows
+approvals, alerts, and workflow state on a dedicated display.
+
+This project is the first runnable prototype. It intentionally starts with the
+same device pattern as NodeSpark Wisp: pair with NodeSparkHub, check in, poll
+commands, acknowledge results, and expose capabilities. Synra adds an avatar
+state machine and a full-screen browser UI that can run on the Jetson's HDMI
+display.
+
+## First Prototype
+
+Current capabilities:
+
+- Full-screen Synra monitor UI.
+- Local control API for avatar state, expression, message, and workflow cards.
+- Wisp-compatible Hub client for pairing, check-in, command polling, workflow
+  runs, assistant calls, and command acknowledgements.
+- Command handlers for `speak`, `setExpression`, `setState`, `showCard`,
+  `approval`, `assistant`, and `runWorkflow`.
+- Jetson-friendly Python daemon with no browser framework dependency.
+
+## Run Locally
+
+```bash
+cd "NodeSparkHub Synra Device"
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .
+cp config.example.toml config.toml
+nodespark-synra --config config.toml
+```
+
+Open:
+
+```text
+http://localhost:8788
+```
+
+On the Jetson, run Chromium in kiosk mode against the same URL.
+
+## Local Control API
+
+Set avatar state:
+
+```bash
+curl -X POST http://localhost:8788/api/state \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"thinking","expression":"focused","message":"Building your workflow map..."}'
+```
+
+Make Synra speak visually:
+
+```bash
+curl -X POST http://localhost:8788/api/command \
+  -H "Content-Type: application/json" \
+  -d '{"type":"speak","text":"NodeSparkHub is online. I am ready."}'
+```
+
+Show an approval:
+
+```bash
+curl -X POST http://localhost:8788/api/command \
+  -H "Content-Type: application/json" \
+  -d '{"type":"approval","title":"Approval Needed","text":"Run the client follow-up workflow?"}'
+```
+
+## Design North Star
+
+Synra should feel like the face and soul of NodeSparkHub, not a generic chatbot.
+She is smart first, visually memorable second, and useful always.
+
+Target states:
+
+```text
+idle
+listening
+thinking
+speaking
+workflow_running
+success
+warning
+error
+approval_needed
+sleep
+```
+

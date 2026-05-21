@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NodeSpark Synra</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="synra-stage" data-mode="idle" data-expression="soft_smile">
+      <section class="avatar-zone" aria-label="NodeSpark Synra">
+        <div class="halo halo-a"></div>
+        <div class="halo halo-b"></div>
+        <div class="node-field" aria-hidden="true">
+          <span style="--x: 11%; --y: 24%; --d: 1.2s"></span>
+          <span style="--x: 23%; --y: 12%; --d: 2.7s"></span>
+          <span style="--x: 78%; --y: 19%; --d: 1.8s"></span>
+          <span style="--x: 88%; --y: 43%; --d: 3.2s"></span>
+          <span style="--x: 17%; --y: 72%; --d: 2.1s"></span>
+          <span style="--x: 68%; --y: 80%; --d: 1.4s"></span>
+          <span style="--x: 49%; --y: 8%; --d: 2.9s"></span>
+        </div>
+
+        <div class="avatar-shell">
+          <div class="synra">
+            <div class="hair back-hair"></div>
+            <div class="headset left"></div>
+            <div class="headset right"></div>
+            <div class="hair front-hair"></div>
+            <div class="face">
+              <div class="eyes">
+                <span class="eye left-eye"></span>
+                <span class="eye right-eye"></span>
+              </div>
+              <div class="brows">
+                <span></span>
+                <span></span>
+              </div>
+              <div class="mouth"></div>
+            </div>
+            <div class="neck"></div>
+            <div class="body">
+              <div class="jacket left-panel"></div>
+              <div class="jacket right-panel"></div>
+              <div class="core"></div>
+              <div class="node-glyph"></div>
+            </div>
+            <div class="arm left-arm"></div>
+            <div class="arm right-arm"></div>
+          </div>
+          <div class="platform">
+            <span></span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="status-zone">
+        <div class="brand-row">
+          <div class="spark-mark"></div>
+          <div>
+            <p>NodeSpark</p>
+            <h1>Synra</h1>
+          </div>
+        </div>
+
+        <div class="mode-strip" id="modeStrip">
+          <span>idle</span>
+          <span>listening</span>
+          <span>thinking</span>
+          <span>speaking</span>
+        </div>
+
+        <article class="message-panel">
+          <p class="eyebrow" id="stateLabel">Synra online</p>
+          <h2 id="messageText">NodeSparkHub is waiting for a workflow.</h2>
+          <p id="subtitleText">Ready</p>
+        </article>
+
+        <article class="workflow-card" id="card">
+          <div>
+            <p class="eyebrow" id="cardStyle">info</p>
+            <h3 id="cardTitle">NodeSparkHub</h3>
+          </div>
+          <p id="cardBody">Synra is ready.</p>
+          <p id="cardDetail">Waiting for your next command.</p>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progressBar"></span>
+          </div>
+        </article>
+
+        <div class="quick-actions">
+          <button data-demo="listening">Listen</button>
+          <button data-demo="thinking">Think</button>
+          <button data-demo="speaking">Speak</button>
+          <button data-demo="success">Win</button>
+        </div>
+      </aside>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
+
