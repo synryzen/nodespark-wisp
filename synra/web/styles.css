@@ -103,10 +103,39 @@ body {
 
 .avatar-shell {
   position: relative;
-  width: min(70vh, 680px);
-  height: min(90vh, 900px);
+  width: min(68vw, 1040px);
+  height: min(88vh, 880px);
   display: grid;
   place-items: center;
+  isolation: isolate;
+}
+
+.synra-art {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 44%;
+  border-radius: 10px;
+  filter:
+    drop-shadow(0 0 34px rgba(155, 92, 255, 0.26))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+  animation: characterBreathe 4.8s ease-in-out infinite;
+}
+
+.synra-scanline {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, transparent, rgba(103, 245, 255, 0.12), transparent),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 6px);
+  mix-blend-mode: screen;
+  opacity: 0.25;
+  pointer-events: none;
+  animation: scanDrift 6s linear infinite;
 }
 
 .synra-portrait {
@@ -117,6 +146,7 @@ body {
   animation: breathe 3.7s ease-in-out infinite;
   filter: drop-shadow(0 0 42px rgba(76, 201, 255, 0.35)) drop-shadow(0 30px 80px rgba(0, 0, 0, 0.55));
   z-index: 2;
+  display: none;
 }
 
 .synra-portrait .aura-lines path {
@@ -303,8 +333,8 @@ body {
 .platform {
   position: absolute;
   left: 50%;
-  bottom: 6px;
-  width: 420px;
+  bottom: -22px;
+  width: min(74%, 720px);
   height: 94px;
   transform: translateX(-50%);
   border-radius: 50%;
@@ -490,6 +520,39 @@ h1 {
   filter: drop-shadow(0 0 9px rgba(103, 245, 255, 0.95));
 }
 
+[data-mode="listening"] .synra-art {
+  filter:
+    drop-shadow(0 0 38px rgba(76, 201, 255, 0.48))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+}
+
+[data-mode="thinking"] .synra-art,
+[data-mode="workflow_running"] .synra-art {
+  filter:
+    saturate(1.08)
+    drop-shadow(0 0 44px rgba(155, 92, 255, 0.45))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.62));
+}
+
+[data-mode="speaking"] .synra-art {
+  animation: characterBreathe 2.6s ease-in-out infinite, speakingGlow 900ms ease-in-out infinite;
+}
+
+[data-mode="success"] .synra-art {
+  filter:
+    saturate(1.12)
+    drop-shadow(0 0 42px rgba(64, 240, 160, 0.36))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+}
+
+[data-mode="error"] .synra-art,
+[data-expression="concerned"] .synra-art {
+  filter:
+    saturate(0.84)
+    drop-shadow(0 0 34px rgba(255, 77, 109, 0.32))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.62));
+}
+
 [data-mode="thinking"] .synra-portrait,
 [data-mode="workflow_running"] .synra-portrait {
   animation-duration: 2.4s;
@@ -553,6 +616,30 @@ h1 {
   50% { transform: scale(1.04); opacity: 0.72; }
 }
 
+@keyframes characterBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.012); }
+}
+
+@keyframes speakingGlow {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 34px rgba(155, 92, 255, 0.28))
+      drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+  }
+  50% {
+    filter:
+      saturate(1.12)
+      drop-shadow(0 0 52px rgba(255, 209, 102, 0.36))
+      drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+  }
+}
+
+@keyframes scanDrift {
+  0% { background-position: 0 -120px, 0 0; }
+  100% { background-position: 0 120px, 0 24px; }
+}
+
 @keyframes floatNode {
   0%, 100% { transform: translate3d(0,0,0); opacity: 0.6; }
   50% { transform: translate3d(10px,-18px,0); opacity: 1; }
@@ -583,8 +670,8 @@ h1 {
   }
 
   .avatar-shell {
-    height: 680px;
-    transform: scale(0.86);
+    width: 100%;
+    height: min(74vh, 760px);
   }
 
   .status-zone {
