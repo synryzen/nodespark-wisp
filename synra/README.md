@@ -22,6 +22,8 @@ Current capabilities:
 - Command handlers for `speak`, `setExpression`, `setState`, `showCard`,
   `approval`, `assistant`, and `runWorkflow`.
 - Browser speech output when Synra receives a `speak` command.
+- Browser microphone loop for push-to-talk requests through NodeSparkHub
+  Assistant.
 - Jetson-friendly Python daemon with no browser framework dependency.
 
 ## Install On Existing Jetson OS
@@ -108,6 +110,19 @@ curl -X POST http://localhost:8788/api/command \
   -H "Content-Type: application/json" \
   -d '{"type":"approval","title":"Approval Needed","text":"Run the client follow-up workflow?"}'
 ```
+
+Ask from the monitor microphone:
+
+```text
+Open http://127.0.0.1:8788
+Click Talk
+Allow microphone access in Chromium
+Speak naturally
+```
+
+The browser captures a transcript, sends it to the local Synra daemon, the
+daemon forwards it to NodeSparkHub's `/wisp/assistant` flow, and Synra speaks
+the returned reply.
 
 ## Design North Star
 

@@ -42,28 +42,38 @@ class SynraApp:
         command_id = str(command.get("id") or command.get("commandId") or "")
         kind = str(command.get("type", "showCard")).strip().lower()
 
-        if kind in {"assistant", "ask", "askai"} and self.hub.configured():
+        if kind in {"assistant", "ask", "askai"}:
             text = str(command.get("text") or command.get("body") or "Help me from NodeSpark Synra.")
             self.state.set_state({
                 "mode": "thinking",
                 "expression": "focused",
-                "message": "Asking NodeSparkHub...",
+                "message": f"Thinking about: {text}",
                 "subtitle": "Synra Assistant",
+                "card": {
+                    "title": "Voice Request",
+                    "body": text,
+                    "detail": "Sending to NodeSparkHub",
+                    "style": "thinking",
+                },
             })
-            try:
-                response = self.hub.ask_assistant(text)
-                reply = str(response.get("displayText") or response.get("reply") or response.get("message") or "No assistant reply.")
-                self.state.apply_command({
-                    "type": "speak",
-                    "title": "Synra",
-                    "text": reply,
-                    "subtitle": "NodeSparkHub AI",
-                    "id": command_id,
-                })
-                result = reply[:240]
-            except Exception as exc:
-                self.state.apply_command({"type": "error", "text": str(exc), "id": command_id})
-                result = str(exc)
+            if not self.hub.configured():
+                result = "NodeSparkHub URL is not configured. Set hub.base_url in config.toml."
+                self.state.apply_command({"type": "error", "text": result, "id": command_id})
+            else:
+                try:
+                    response = self.hub.ask_assistant(text)
+                    reply = str(response.get("displayText") or response.get("reply") or response.get("message") or "No assistant reply.")
+                    self.state.apply_command({
+                        "type": "speak",
+                        "title": "Synra",
+                        "text": reply,
+                        "subtitle": "NodeSparkHub AI",
+                        "id": command_id,
+                    })
+                    result = reply[:240]
+                except Exception as exc:
+                    self.state.apply_command({"type": "error", "text": str(exc), "id": command_id})
+                    result = str(exc)
         elif kind in {"runworkflow", "run", "workflow"} and self.hub.configured():
             workflow = str(command.get("workflowName") or command.get("workflow") or self.cfg.hub.default_workflow)
             self.state.apply_command({**command, "workflowName": workflow})
@@ -114,4 +124,3 @@ class SynraApp:
             return
         for command in commands:
             self.handle_command(command, ack=True)
-

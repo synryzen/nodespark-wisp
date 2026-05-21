@@ -491,6 +491,12 @@ h1 {
   border-color: var(--cyan);
 }
 
+.quick-actions button.active {
+  border-color: var(--gold);
+  background: rgba(255, 209, 102, 0.18);
+  color: #fff6db;
+}
+
 [data-mode="listening"] .halo-a,
 [data-mode="listening"] .node-field span {
   background: rgba(76, 201, 255, 0.45);

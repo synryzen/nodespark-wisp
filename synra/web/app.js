@@ -8,8 +8,12 @@ const cardBody = document.getElementById("cardBody");
 const cardDetail = document.getElementById("cardDetail");
 const progressBar = document.getElementById("progressBar");
 const modeStrip = document.getElementById("modeStrip");
+const listenButton = document.getElementById("listenButton");
+const voiceNote = document.getElementById("voiceNote");
 
 let lastSpeechId = "";
+let recognition = null;
+let isListening = false;
 
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
@@ -103,9 +107,161 @@ async function sendDemo(mode) {
   fetchState();
 }
 
+async function setRemoteState(payload) {
+  await fetch("/api/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  fetchState();
+}
+
+async function askAssistant(text) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    await setRemoteState({
+      mode: "warning",
+      expression: "concerned",
+      message: "I did not catch that.",
+      subtitle: "Try again",
+      card: {
+        title: "No Voice Input",
+        body: "Synra did not receive a transcript.",
+        detail: "Microphone input ended without speech.",
+        style: "warning"
+      }
+    });
+    return;
+  }
+
+  await setRemoteState({
+    mode: "thinking",
+    expression: "focused",
+    message: `Thinking about: ${trimmed}`,
+    subtitle: "NodeSparkHub Assistant",
+    card: {
+      title: "Voice Request",
+      body: trimmed,
+      detail: "Sending to NodeSparkHub",
+      style: "thinking"
+    }
+  });
+
+  await fetch("/api/command", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: `voice-${Date.now()}`,
+      type: "assistant",
+      text: trimmed
+    })
+  });
+  fetchState();
+}
+
+function speechRecognitionConstructor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function startVoiceLoop() {
+  if (isListening) return;
+  const Recognition = speechRecognitionConstructor();
+  if (!Recognition) {
+    const fallback = window.prompt("Ask Synra");
+    if (fallback) askAssistant(fallback);
+    return;
+  }
+
+  isListening = true;
+  listenButton.classList.add("active");
+  listenButton.textContent = "Listening";
+  voiceNote.textContent = "Microphone active";
+
+  recognition = new Recognition();
+  recognition.lang = navigator.language || "en-US";
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  let finalTranscript = "";
+  let latestTranscript = "";
+  let hadError = false;
+
+  setRemoteState({
+    mode: "listening",
+    expression: "attentive",
+    message: "I’m listening.",
+    subtitle: "Microphone active",
+    card: {
+      title: "Voice Input",
+      body: "Listening for your request...",
+      detail: "Speak naturally to NodeSpark Synra",
+      style: "listening"
+    }
+  });
+
+  recognition.onresult = (event) => {
+    latestTranscript = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0].transcript;
+      latestTranscript += transcript;
+      if (event.results[index].isFinal) finalTranscript += transcript;
+    }
+    const preview = (finalTranscript || latestTranscript).trim();
+    if (preview) {
+      setRemoteState({
+        mode: "listening",
+        expression: "attentive",
+        message: preview,
+        subtitle: "Listening...",
+        card: {
+          title: "Voice Input",
+          body: preview,
+          detail: "Capturing speech",
+          style: "listening"
+        }
+      });
+    }
+  };
+
+  recognition.onerror = (event) => {
+    hadError = true;
+    isListening = false;
+    listenButton.classList.remove("active");
+    listenButton.textContent = "Talk";
+    voiceNote.textContent = `Mic error: ${event.error || "unknown"}`;
+    setRemoteState({
+      mode: "error",
+      expression: "concerned",
+      message: `Microphone error: ${event.error || "unknown"}`,
+      subtitle: "Voice input",
+      card: {
+        title: "Voice Input Error",
+        body: event.error || "The browser could not capture speech.",
+        detail: "Check Chromium microphone permission",
+        style: "error"
+      }
+    });
+  };
+
+  recognition.onend = () => {
+    if (hadError) return;
+    const transcript = (finalTranscript || latestTranscript).trim();
+    isListening = false;
+    listenButton.classList.remove("active");
+    listenButton.textContent = "Talk";
+    voiceNote.textContent = "Voice loop ready";
+    askAssistant(transcript);
+  };
+
+  recognition.start();
+}
+
 document.querySelectorAll("[data-demo]").forEach((button) => {
   button.addEventListener("click", () => sendDemo(button.dataset.demo));
 });
+
+listenButton.addEventListener("click", startVoiceLoop);
 
 fetchState();
 setInterval(fetchState, 650);
