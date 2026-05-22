@@ -156,6 +156,13 @@ cd synra
 bash scripts/install_live2d_model_pack.sh /path/to/nodespark-synra-live2d-delivery.zip
 ```
 
+Install an optional official Live2D sample model for renderer smoke testing:
+
+```bash
+cd synra
+bash scripts/install_live2d_smoke_test_model.sh
+```
+
 Check runtime/model status from the running daemon:
 
 ```bash

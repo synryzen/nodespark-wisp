@@ -83,6 +83,7 @@
         <input id="modelUrl" value="/assets/live2d/synra/synra.model3.json" />
         <div class="quick-actions">
           <button id="loadButton">Load</button>
+          <button id="sampleButton">Sample</button>
           <button data-motion="idle">Idle</button>
           <button data-motion="listen">Listen</button>
           <button data-motion="talk">Talk</button>
@@ -144,6 +145,10 @@
       }
 
       document.getElementById("loadButton").addEventListener("click", loadModel);
+      document.getElementById("sampleButton").addEventListener("click", () => {
+        modelUrl.value = "/assets/live2d/smoke-test/Mao/Mao.model3.json";
+        loadModel();
+      });
       document.querySelectorAll("[data-motion]").forEach((button) => {
         button.addEventListener("click", () => {
           if (!model?.motion) return;
