@@ -33,6 +33,9 @@ class SynraRequestHandler(SimpleHTTPRequestHandler):
                 "hubUrl": self.server.app.cfg.hub.base_url,
             })
             return
+        if path == "/api/live2d":
+            self._json({"ok": True, "live2d": live2d_status(self.server.web_root)})
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -85,3 +88,43 @@ def serve(app: SynraApp, host: str, port: int) -> None:
     httpd = SynraHTTPServer((host, port), handler, app, web_root)
     print(f"[synra] serving monitor UI at http://{host}:{port}")
     httpd.serve_forever()
+
+
+def live2d_status(web_root: Path) -> dict[str, Any]:
+    model_root = web_root / "assets" / "live2d" / "synra"
+    vendor_root = web_root / "assets" / "vendor" / "live2d"
+    model_file = model_root / "synra.model3.json"
+    vendor_files = {
+        "live2dcubismcore": vendor_root / "live2dcubismcore.min.js",
+        "pixi": vendor_root / "pixi.min.js",
+        "pixiLive2DDisplay": vendor_root / "pixi-live2d-display.min.js",
+    }
+    status: dict[str, Any] = {
+        "modelReady": model_file.is_file(),
+        "runtimeReady": all(path.is_file() for path in vendor_files.values()),
+        "modelPath": "/assets/live2d/synra/synra.model3.json",
+        "vendor": {name: path.is_file() for name, path in vendor_files.items()},
+        "missing": [],
+    }
+
+    if not model_file.is_file():
+        status["missing"].append("web/assets/live2d/synra/synra.model3.json")
+    for path in vendor_files.values():
+        if not path.is_file():
+            status["missing"].append(str(path.relative_to(web_root)))
+
+    if model_file.is_file():
+        try:
+            model = json.loads(model_file.read_text(encoding="utf-8"))
+            refs = model.get("FileReferences") or {}
+            status["modelReferences"] = {
+                "textures": len(refs.get("Textures") or []),
+                "expressions": len(refs.get("Expressions") or []),
+                "motionGroups": sorted((refs.get("Motions") or {}).keys()),
+                "hasPhysics": bool(refs.get("Physics")),
+                "hasPose": bool(refs.get("Pose")),
+            }
+        except Exception as exc:
+            status["modelError"] = str(exc)
+
+    return status

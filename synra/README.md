@@ -149,6 +149,19 @@ cd synra
 bash scripts/install_live2d_runtime_vendor.sh
 ```
 
+Install a finished model delivery zip or folder:
+
+```bash
+cd synra
+bash scripts/install_live2d_model_pack.sh /path/to/nodespark-synra-live2d-delivery.zip
+```
+
+Check runtime/model status from the running daemon:
+
+```bash
+curl http://localhost:8788/api/live2d
+```
+
 See `docs/LIVE2D_PIPELINE.md` for the layer list, expression names, motion
 groups, and export structure.
 

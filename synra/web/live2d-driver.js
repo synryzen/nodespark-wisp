@@ -41,6 +41,17 @@ async function urlExists(url) {
   }
 }
 
+async function fetchLive2DStatus() {
+  try {
+    const response = await fetch("/api/live2d", { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.live2d || null;
+  } catch {
+    return null;
+  }
+}
+
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -84,6 +95,10 @@ class SynraLive2DController {
     if (!this.canvas || !this.container) return;
 
     live2dSetStatus("checking", "Checking Live2D model");
+    const apiStatus = await fetchLive2DStatus();
+    if (apiStatus?.missing?.length) {
+      console.info("Synra Live2D missing assets", apiStatus.missing);
+    }
     const hasModel = await urlExists(SYNRA_MODEL_URL);
     if (!hasModel) {
       live2dSetStatus("missing-model", "Drop Synra model pack into assets/live2d/synra");

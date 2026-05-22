@@ -37,9 +37,8 @@ nodespark-synra-live2d-delivery/
 To install the runtime pack into the app:
 
 ```bash
-cp -R nodespark-synra-live2d-delivery/runtime/* synra/web/assets/live2d/synra/
 cd synra
-bash scripts/check_live2d_assets.sh
+bash scripts/install_live2d_model_pack.sh /path/to/nodespark-synra-live2d-delivery
 ```
 
 When the check passes, refresh the Jetson monitor page. The browser UI will
