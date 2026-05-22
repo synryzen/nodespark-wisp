@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL="${1:-http://127.0.0.1:8788}"
+URL="${1:-http://127.0.0.1:8788/?autoMedia=1}"
 CHROME_FLAGS=(
   --kiosk
   --noerrdialogs

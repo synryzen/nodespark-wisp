@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="synra-stage" data-mode="idle" data-expression="soft_smile">
+    <main class="synra-stage" data-mode="idle" data-expression="soft_smile" data-presence="sleeping">
       <section class="avatar-zone" aria-label="NodeSpark Synra">
         <div class="halo halo-a"></div>
         <div class="halo halo-b"></div>
@@ -22,6 +22,7 @@
         </div>
 
         <div class="avatar-shell">
+          <div class="depth-backdrop" aria-hidden="true"></div>
           <div class="synra-rig" id="synraRig">
             <img
               class="synra-art"
@@ -36,6 +37,11 @@
               <span class="cheek-rig cheek-right"></span>
             </div>
             <div class="synra-scanline" aria-hidden="true"></div>
+          </div>
+          <div class="presence-aura" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
           <video id="presenceVideo" class="presence-video" muted playsinline></video>
           <svg class="synra-portrait" viewBox="0 0 720 1000" role="img" aria-labelledby="synraTitle synraDesc">

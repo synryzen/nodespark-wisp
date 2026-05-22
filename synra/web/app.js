@@ -26,6 +26,7 @@ let currentMotion = { x: 0, y: 0, rotate: 0, scale: 1, mouth: 0 };
 let blinkUntil = 0;
 let nextBlink = performance.now() + 1600;
 let lastStateMode = "idle";
+let mediaActivationStarted = false;
 
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
@@ -231,6 +232,9 @@ function updateMotion() {
   setCssNumber("--rig-y", currentMotion.y, "px");
   setCssNumber("--rig-rotate", currentMotion.rotate, "deg");
   setCssNumber("--rig-scale", currentMotion.scale);
+  setCssNumber("--depth-x", currentMotion.x * 0.6, "px");
+  setCssNumber("--depth-y", currentMotion.y * 0.5, "px");
+  setCssNumber("--light-sweep", 42 + Math.sin(now / 2400) * 16, "%");
   setCssNumber("--mouth-open", clamp(mouthWave, 0, 1));
   setCssNumber("--blink", blink);
 
@@ -286,8 +290,11 @@ function watchAudioLevel(stream) {
 }
 
 async function activateCameraAndMic() {
+  if (mediaActivationStarted) return;
+  mediaActivationStarted = true;
   if (!navigator.mediaDevices?.getUserMedia) {
     voiceNote.textContent = "Media devices unavailable";
+    mediaActivationStarted = false;
     return;
   }
   try {
@@ -341,6 +348,7 @@ async function activateCameraAndMic() {
       watchPresence();
     }
     voiceNote.textContent = "Webcam mic active";
+    stage.dataset.presence = "awake";
     if (preferredMic || preferredCamera) {
       micStatus.textContent = preferredMic ? `Mic ${preferredMic.label || "active"}` : micStatus.textContent;
       cameraStatus.textContent = preferredCamera ? `Cam ${preferredCamera.label || "active"}` : cameraStatus.textContent;
@@ -348,6 +356,7 @@ async function activateCameraAndMic() {
     stage.dataset.expression = "bright";
   } catch (error) {
     voiceNote.textContent = `Cam/mic error: ${error.name || "blocked"}`;
+    mediaActivationStarted = false;
   }
 }
 
@@ -490,3 +499,12 @@ enumerateDevices();
 updateMotion();
 fetchState();
 setInterval(fetchState, 650);
+
+const params = new URLSearchParams(window.location.search);
+const shouldAutoWake =
+  params.get("autoMedia") === "1" ||
+  (window.location.hostname === "127.0.0.1" && /Linux/i.test(navigator.userAgent));
+
+if (shouldAutoWake) {
+  window.setTimeout(() => activateCameraAndMic(), 1200);
+}
