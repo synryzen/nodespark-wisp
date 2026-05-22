@@ -163,6 +163,46 @@ body {
   transition: opacity 220ms ease;
 }
 
+.synra-frame-rig {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(155, 92, 255, 0.18), transparent 34%),
+    rgba(3, 5, 10, 0.46);
+  transform:
+    translate3d(var(--rig-x), var(--rig-y), 0)
+    rotate(var(--rig-rotate))
+    scale(var(--rig-scale));
+  transform-origin: 50% 60%;
+  transition: filter 180ms ease, opacity 220ms ease;
+  animation: characterBreathe 4.8s ease-in-out infinite;
+}
+
+.synra-frame-rig img {
+  display: block;
+  width: min(72vh, 92%);
+  max-width: 92%;
+  height: min(84vh, 92%);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 34px var(--mood-glow))
+    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.64));
+  transition: opacity 120ms ease, transform 160ms ease;
+}
+
+[data-live2d="ready"] .synra-frame-rig {
+  opacity: 0;
+}
+
+.fallback-avatar {
+  opacity: 0;
+}
+
 #synraLive2DCanvas {
   display: block;
   width: 100%;

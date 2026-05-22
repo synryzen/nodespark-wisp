@@ -15,6 +15,8 @@ trap cleanup EXIT
 mkdir -p "$PACKAGE_DIR/reference" "$OUT_DIR"
 
 cp "$ROOT/web/assets/synra-character.png" "$PACKAGE_DIR/reference/synra-character.png"
+cp "$ROOT/web/assets/synra/sheets/expression-sheet.png" "$PACKAGE_DIR/reference/expression-sheet.png"
+cp "$ROOT/web/assets/synra/sheets/rigging-poses-sheet.png" "$PACKAGE_DIR/reference/rigging-poses-sheet.png"
 cp "$ROOT/live2d-production/README.md" "$PACKAGE_DIR/README.md"
 cp "$ROOT/live2d-production/ART_BRIEF.md" "$PACKAGE_DIR/ART_BRIEF.md"
 cp "$ROOT/live2d-production/REFERENCE_CARD.md" "$PACKAGE_DIR/REFERENCE_CARD.md"

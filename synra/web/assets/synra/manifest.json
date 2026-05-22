@@ -1,0 +1,30 @@
+{
+  "sheets": {
+    "expressions": "/assets/synra/sheets/expression-sheet.png",
+    "riggingPoses": "/assets/synra/sheets/rigging-poses-sheet.png"
+  },
+  "expressions": {
+    "neutral": "/assets/synra/expressions/neutral.png",
+    "listening": "/assets/synra/expressions/listening.png",
+    "thinking": "/assets/synra/expressions/thinking.png",
+    "speaking": "/assets/synra/expressions/speaking.png",
+    "happy": "/assets/synra/expressions/happy.png",
+    "wink": "/assets/synra/expressions/wink.png",
+    "concerned": "/assets/synra/expressions/concerned.png",
+    "curious": "/assets/synra/expressions/curious.png"
+  },
+  "rigPoses": {
+    "forwardNeutral": "/assets/synra/rig-poses/forward-neutral.png",
+    "lookUp": "/assets/synra/rig-poses/look-up.png",
+    "lookDown": "/assets/synra/rig-poses/look-down.png",
+    "lookLeft": "/assets/synra/rig-poses/look-left.png",
+    "lookRight": "/assets/synra/rig-poses/look-right.png",
+    "blinkClosed": "/assets/synra/rig-poses/blink-closed.png",
+    "halfBlink": "/assets/synra/rig-poses/half-blink.png",
+    "smile": "/assets/synra/rig-poses/smile.png",
+    "mouthA": "/assets/synra/rig-poses/mouth-a.png",
+    "mouthEi": "/assets/synra/rig-poses/mouth-ei.png",
+    "mouthOu": "/assets/synra/rig-poses/mouth-ou.png",
+    "concerned": "/assets/synra/rig-poses/concerned.png"
+  }
+}

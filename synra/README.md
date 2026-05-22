@@ -172,6 +172,8 @@ curl http://localhost:8788/api/live2d
 See `docs/LIVE2D_PIPELINE.md` for the layer list, expression names, motion
 groups, and export structure.
 See `docs/LIVE2D_LOCAL_SETUP.md` for the local Mac and Jetson setup status.
+See `docs/SYNRA_FRAME_ASSETS.md` for the current AI-drawn expression and pose
+frames used by the monitor UI.
 
 The production handoff package for artists and riggers is in:
 

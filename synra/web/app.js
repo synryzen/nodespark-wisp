@@ -15,6 +15,7 @@ const micStatus = document.getElementById("micStatus");
 const cameraStatus = document.getElementById("cameraStatus");
 const presenceVideo = document.getElementById("presenceVideo");
 const live2dStatus = document.getElementById("live2dStatus");
+const synraFrameArt = document.getElementById("synraFrameArt");
 
 let lastSpeechId = "";
 let recognition = null;
@@ -28,6 +29,7 @@ let blinkUntil = 0;
 let nextBlink = performance.now() + 1600;
 let lastStateMode = "idle";
 let mediaActivationStarted = false;
+let currentFrameSrc = "";
 
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
@@ -35,6 +37,34 @@ const demoText = {
   speaking: "NodeSparkHub is online. I’m ready to help.",
   success: "Done. That workflow landed cleanly."
 };
+
+const framePaths = {
+  neutral: "/assets/synra/expressions/neutral.png",
+  listening: "/assets/synra/expressions/listening.png",
+  thinking: "/assets/synra/expressions/thinking.png",
+  speaking: "/assets/synra/expressions/speaking.png",
+  happy: "/assets/synra/expressions/happy.png",
+  wink: "/assets/synra/expressions/wink.png",
+  concerned: "/assets/synra/expressions/concerned.png",
+  curious: "/assets/synra/expressions/curious.png",
+  forward: "/assets/synra/rig-poses/forward-neutral.png",
+  lookUp: "/assets/synra/rig-poses/look-up.png",
+  lookDown: "/assets/synra/rig-poses/look-down.png",
+  lookLeft: "/assets/synra/rig-poses/look-left.png",
+  lookRight: "/assets/synra/rig-poses/look-right.png",
+  blink: "/assets/synra/rig-poses/blink-closed.png",
+  halfBlink: "/assets/synra/rig-poses/half-blink.png",
+  smile: "/assets/synra/rig-poses/smile.png",
+  mouthA: "/assets/synra/rig-poses/mouth-a.png",
+  mouthEi: "/assets/synra/rig-poses/mouth-ei.png",
+  mouthOu: "/assets/synra/rig-poses/mouth-ou.png",
+  rigConcerned: "/assets/synra/rig-poses/concerned.png"
+};
+
+Object.values(framePaths).forEach((src) => {
+  const image = new Image();
+  image.src = src;
+});
 
 async function fetchState() {
   try {
@@ -203,6 +233,45 @@ function setCssNumber(name, value, unit = "") {
   stage.style.setProperty(name, `${value.toFixed(3)}${unit}`);
 }
 
+function setSynraFrame(src) {
+  if (!synraFrameArt || !src || src === currentFrameSrc) return;
+  currentFrameSrc = src;
+  synraFrameArt.src = src;
+}
+
+function baseFrameForState() {
+  const mode = stage.dataset.mode || "idle";
+  const expression = stage.dataset.expression || "soft_smile";
+  if (mode === "speaking") return framePaths.speaking;
+  if (mode === "listening") return framePaths.listening;
+  if (mode === "thinking" || mode === "workflow_running") return framePaths.thinking;
+  if (mode === "success") return framePaths.happy;
+  if (mode === "approval_needed" || expression === "raised_brow") return framePaths.curious;
+  if (mode === "error" || mode === "warning" || expression === "concerned") return framePaths.concerned;
+  if (expression === "wink") return framePaths.wink;
+  if (expression === "bright") return framePaths.happy;
+  return framePaths.neutral;
+}
+
+function chooseSynraFrame({ blink, mouth }) {
+  if (mouth > 0.74) return framePaths.mouthA;
+  if (mouth > 0.48) return framePaths.mouthOu;
+  if (mouth > 0.2) return framePaths.mouthEi;
+  if (blink >= 1) return framePaths.blink;
+  if (blink > 0) return framePaths.halfBlink;
+
+  const mode = stage.dataset.mode || "idle";
+  const expression = stage.dataset.expression || "soft_smile";
+  if (mode === "idle" && expression === "soft_smile") {
+    if (currentMotion.x < -7) return framePaths.lookLeft;
+    if (currentMotion.x > 7) return framePaths.lookRight;
+    if (currentMotion.y < -6) return framePaths.lookUp;
+    if (currentMotion.y > 6) return framePaths.lookDown;
+  }
+
+  return baseFrameForState();
+}
+
 function scheduleBlink(now) {
   if (now < nextBlink) return;
   blinkUntil = now + 130;
@@ -235,6 +304,7 @@ function updateMotion() {
   const talking = Math.max(currentMotion.mouth, audioLevel);
   const mouthWave = talking ? (0.35 + Math.abs(Math.sin(now / 92)) * 0.65) * talking : 0;
   const blink = now < blinkUntil ? 1 : 0;
+  const frameBlink = blink ? (blinkUntil - now > 65 ? 1 : 0.5) : 0;
 
   setCssNumber("--rig-x", currentMotion.x, "px");
   setCssNumber("--rig-y", currentMotion.y, "px");
@@ -245,6 +315,7 @@ function updateMotion() {
   setCssNumber("--light-sweep", 42 + Math.sin(now / 2400) * 16, "%");
   setCssNumber("--mouth-open", clamp(mouthWave, 0, 1));
   setCssNumber("--blink", blink);
+  setSynraFrame(chooseSynraFrame({ blink: frameBlink, mouth: clamp(mouthWave, 0, 1) }));
   window.synraLive2D?.update({
     x: currentMotion.x,
     y: currentMotion.y,
