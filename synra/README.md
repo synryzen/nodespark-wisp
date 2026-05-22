@@ -142,6 +142,13 @@ cd synra
 bash scripts/check_live2d_assets.sh
 ```
 
+Install the local browser runtime files:
+
+```bash
+cd synra
+bash scripts/install_live2d_runtime_vendor.sh
+```
+
 See `docs/LIVE2D_PIPELINE.md` for the layer list, expression names, motion
 groups, and export structure.
 

@@ -102,6 +102,13 @@ pixi.min.js
 pixi-live2d-display.min.js
 ```
 
+Install them with:
+
+```bash
+cd synra
+bash scripts/install_live2d_runtime_vendor.sh
+```
+
 Once the model pack and vendor files exist, restart `nodespark-synra` or refresh
 the kiosk page. The fallback PNG will disappear and the Live2D canvas will take
 over the character stage.

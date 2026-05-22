@@ -13,3 +13,13 @@ pixi-live2d-display.min.js
 `live2dcubismcore.min.js` comes from the Live2D Cubism SDK for Web and is
 covered by Live2D's SDK license. Keep that file local so the Jetson kiosk can
 run without relying on a CDN.
+
+Install them with:
+
+```bash
+cd synra
+bash scripts/install_live2d_runtime_vendor.sh
+```
+
+The script downloads Cubism Core from Live2D's official web SDK endpoint and
+downloads the PixiJS runtime files from jsDelivr/npm.

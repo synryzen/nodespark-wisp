@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Synra Live2D Runtime Test</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body {
+        overflow: hidden;
+      }
+
+      .test-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 20px;
+        width: 100vw;
+        height: 100vh;
+        padding: 24px;
+      }
+
+      .test-stage {
+        position: relative;
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid rgba(76, 201, 255, 0.3);
+        border-radius: 8px;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(155, 92, 255, 0.16), transparent 44%),
+          rgba(5, 7, 12, 0.74);
+      }
+
+      #testCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .test-panel {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      .test-panel textarea,
+      .test-panel input {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.055);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .test-panel input {
+        height: 38px;
+        padding: 0 10px;
+      }
+
+      .test-panel textarea {
+        height: 180px;
+        padding: 10px;
+        resize: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="test-shell">
+      <section class="test-stage">
+        <canvas id="testCanvas"></canvas>
+      </section>
+      <aside class="test-panel">
+        <div class="brand-row">
+          <div class="spark-mark"></div>
+          <div>
+            <p>NodeSpark Synra</p>
+            <h1>Live2D Test</h1>
+          </div>
+        </div>
+        <input id="modelUrl" value="/assets/live2d/synra/synra.model3.json" />
+        <div class="quick-actions">
+          <button id="loadButton">Load</button>
+          <button data-motion="idle">Idle</button>
+          <button data-motion="listen">Listen</button>
+          <button data-motion="talk">Talk</button>
+        </div>
+        <textarea id="log" readonly>Waiting.</textarea>
+      </aside>
+    </main>
+
+    <script src="/assets/vendor/live2d/live2dcubismcore.min.js"></script>
+    <script src="/assets/vendor/live2d/pixi.min.js"></script>
+    <script src="/assets/vendor/live2d/pixi-live2d-display.min.js"></script>
+    <script>
+      const log = document.getElementById("log");
+      const modelUrl = document.getElementById("modelUrl");
+      const canvas = document.getElementById("testCanvas");
+      const stage = document.querySelector(".test-stage");
+      let app;
+      let model;
+
+      function write(line) {
+        log.value = `${new Date().toLocaleTimeString()} ${line}\n${log.value}`;
+      }
+
+      function fitModel() {
+        if (!model || !stage) return;
+        const bounds = stage.getBoundingClientRect();
+        const scale = Math.min(bounds.width / model.width, bounds.height / model.height) * 0.92;
+        model.scale.set(scale);
+        model.x = bounds.width * 0.5;
+        model.y = bounds.height * 0.55;
+      }
+
+      async function loadModel() {
+        try {
+          if (!window.PIXI?.live2d?.Live2DModel) {
+            write("Live2D runtime is missing. Run scripts/install_live2d_runtime_vendor.sh.");
+            return;
+          }
+
+          write(`Loading ${modelUrl.value}`);
+          if (!app) {
+            app = new PIXI.Application({
+              antialias: true,
+              autoDensity: true,
+              backgroundAlpha: 0,
+              resizeTo: stage,
+              view: canvas
+            });
+          }
+          if (model) app.stage.removeChild(model);
+          model = await PIXI.live2d.Live2DModel.from(modelUrl.value, { autoInteract: false });
+          model.anchor?.set?.(0.5, 0.5);
+          app.stage.addChild(model);
+          fitModel();
+          write("Loaded.");
+        } catch (error) {
+          write(`ERROR ${error.message || error}`);
+        }
+      }
+
+      document.getElementById("loadButton").addEventListener("click", loadModel);
+      document.querySelectorAll("[data-motion]").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!model?.motion) return;
+          model.motion(button.dataset.motion, 0, 2).catch((error) => write(`Motion error ${error.message || error}`));
+        });
+      });
+      window.addEventListener("resize", fitModel, { passive: true });
+      loadModel();
+    </script>
+  </body>
+</html>
