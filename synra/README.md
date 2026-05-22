@@ -151,6 +151,13 @@ The production handoff package for artists and riggers is in:
 synra/live2d-production/
 ```
 
+Build a sendable package:
+
+```bash
+cd synra
+bash scripts/build_live2d_commission_pack.sh
+```
+
 ## Design North Star
 
 Synra should feel like the face and soul of NodeSparkHub, not a generic chatbot.

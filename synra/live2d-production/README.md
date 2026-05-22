@@ -14,7 +14,10 @@ Synra's target is not a moving PNG. She needs:
 
 ```text
 ART_BRIEF.md
+REFERENCE_CARD.md
 COMMISSION_HANDOFF.md
+HIRE_POST.md
+DELIVERY_STRUCTURE.md
 ACCEPTANCE_CHECKLIST.md
 layer_manifest.json
 rig_contract.json
@@ -40,3 +43,13 @@ synra/web/assets/live2d/synra/synra.model3.json
 
 The app already maps NodeSparkHub state into Live2D expressions, motion groups,
 head/gaze parameters, breathing, and mouth movement.
+
+## Build The Handoff Zip
+
+```bash
+cd synra
+bash scripts/build_live2d_commission_pack.sh
+```
+
+The generated zip includes the current Synra reference image and all artist,
+rigger, delivery, and validation documents.
