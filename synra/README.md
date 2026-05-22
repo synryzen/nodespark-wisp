@@ -145,6 +145,12 @@ bash scripts/check_live2d_assets.sh
 See `docs/LIVE2D_PIPELINE.md` for the layer list, expression names, motion
 groups, and export structure.
 
+The production handoff package for artists and riggers is in:
+
+```text
+synra/live2d-production/
+```
+
 ## Design North Star
 
 Synra should feel like the face and soul of NodeSparkHub, not a generic chatbot.

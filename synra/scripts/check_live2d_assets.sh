@@ -22,6 +22,13 @@ check_file "$VENDOR_DIR/live2dcubismcore.min.js"
 check_file "$VENDOR_DIR/pixi.min.js"
 check_file "$VENDOR_DIR/pixi-live2d-display.min.js"
 
+if [[ -f "$MODEL_DIR/synra.model3.json" ]]; then
+  printf '\nValidating Synra model contract...\n'
+  if ! python3 "$ROOT/scripts/validate_live2d_pack.py" "$MODEL_DIR/synra.model3.json"; then
+    missing=1
+  fi
+fi
+
 if [[ "$missing" -eq 0 ]]; then
   printf '\nSynra Live2D assets are ready.\n'
 else

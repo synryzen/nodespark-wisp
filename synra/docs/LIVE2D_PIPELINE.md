@@ -25,6 +25,9 @@ Build or commission a layered PSD with at least these parts:
 - Optional physics parts for hair tips, earrings, necklace, chest, clothing
   folds, and loose sleeve edges.
 
+The production handoff lives in `live2d-production/`. Start with
+`live2d-production/ART_BRIEF.md` and `live2d-production/layer_manifest.json`.
+
 ## Rigging Targets
 
 Minimum Synra parameter set:
@@ -102,3 +105,10 @@ pixi-live2d-display.min.js
 Once the model pack and vendor files exist, restart `nodespark-synra` or refresh
 the kiosk page. The fallback PNG will disappear and the Live2D canvas will take
 over the character stage.
+
+Validate the export before deploying:
+
+```bash
+cd synra
+bash scripts/check_live2d_assets.sh
+```
