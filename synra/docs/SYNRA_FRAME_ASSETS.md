@@ -8,6 +8,10 @@ Live2D Cubism model exists.
 ```text
 synra/web/assets/synra/sheets/expression-sheet.png
 synra/web/assets/synra/sheets/rigging-poses-sheet.png
+synra/web/assets/synra/sheets/generated-cels/bust-reactions.png
+synra/web/assets/synra/sheets/generated-cels/body-motion.png
+synra/web/assets/synra/sheets/generated-cels/facial-cels.png
+synra/web/assets/synra/sheets/generated-cels/transition-cycles.png
 ```
 
 ## Runtime Expression Frames
@@ -81,6 +85,15 @@ synra/web/assets/synra/videos/speaking.mp4
 synra/web/assets/synra/videos/success.mp4
 synra/web/assets/synra/videos/concerned.mp4
 synra/web/assets/synra/videos/approval.mp4
+synra/web/assets/synra/videos/okay.mp4
+synra/web/assets/synra/videos/on-it.mp4
+synra/web/assets/synra/videos/confused.mp4
+synra/web/assets/synra/videos/misunderstood.mp4
+synra/web/assets/synra/videos/workflow-running.mp4
+synra/web/assets/synra/videos/waiting.mp4
+synra/web/assets/synra/videos/greeting.mp4
+synra/web/assets/synra/videos/reading.mp4
+synra/web/assets/synra/videos/alert.mp4
 ```
 
 Rebuild them with:

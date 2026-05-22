@@ -5,5 +5,14 @@
   "speaking": "/assets/synra/videos/speaking.mp4",
   "success": "/assets/synra/videos/success.mp4",
   "concerned": "/assets/synra/videos/concerned.mp4",
-  "approval": "/assets/synra/videos/approval.mp4"
+  "approval": "/assets/synra/videos/approval.mp4",
+  "okay": "/assets/synra/videos/okay.mp4",
+  "onIt": "/assets/synra/videos/on-it.mp4",
+  "confused": "/assets/synra/videos/confused.mp4",
+  "misunderstood": "/assets/synra/videos/misunderstood.mp4",
+  "workflowRunning": "/assets/synra/videos/workflow-running.mp4",
+  "waiting": "/assets/synra/videos/waiting.mp4",
+  "greeting": "/assets/synra/videos/greeting.mp4",
+  "reading": "/assets/synra/videos/reading.mp4",
+  "alert": "/assets/synra/videos/alert.mp4"
 }

@@ -51,17 +51,17 @@ const framePaths = {
   concerned: "/assets/synra/expressions/concerned.png",
   curious: "/assets/synra/expressions/curious.png",
   forward: "/assets/synra/rig-poses/forward-neutral.png",
-  lookUp: "/assets/synra/rig-poses/look-up.png",
-  lookDown: "/assets/synra/rig-poses/look-down.png",
-  lookLeft: "/assets/synra/rig-poses/look-left.png",
-  lookRight: "/assets/synra/rig-poses/look-right.png",
-  blink: "/assets/synra/rig-poses/blink-closed.png",
-  halfBlink: "/assets/synra/rig-poses/half-blink.png",
-  smile: "/assets/synra/rig-poses/smile.png",
-  mouthA: "/assets/synra/rig-poses/mouth-a.png",
-  mouthEi: "/assets/synra/rig-poses/mouth-ei.png",
-  mouthOu: "/assets/synra/rig-poses/mouth-ou.png",
-  rigConcerned: "/assets/synra/rig-poses/concerned.png"
+  lookUp: "/assets/synra/rig-poses-clean/look-up.png",
+  lookDown: "/assets/synra/rig-poses-clean/look-down.png",
+  lookLeft: "/assets/synra/rig-poses-clean/look-left.png",
+  lookRight: "/assets/synra/rig-poses-clean/look-right.png",
+  blink: "/assets/synra/rig-poses-clean/blink-closed.png",
+  halfBlink: "/assets/synra/rig-poses-clean/half-blink.png",
+  smile: "/assets/synra/rig-poses-clean/smile.png",
+  mouthA: "/assets/synra/rig-poses-clean/mouth-a.png",
+  mouthEi: "/assets/synra/rig-poses-clean/mouth-ei.png",
+  mouthOu: "/assets/synra/rig-poses-clean/mouth-ou.png",
+  rigConcerned: "/assets/synra/rig-poses-clean/concerned.png"
 };
 
 const videoPaths = {
@@ -71,7 +71,16 @@ const videoPaths = {
   speaking: "/assets/synra/videos/speaking.mp4",
   success: "/assets/synra/videos/success.mp4",
   concerned: "/assets/synra/videos/concerned.mp4",
-  approval: "/assets/synra/videos/approval.mp4"
+  approval: "/assets/synra/videos/approval.mp4",
+  okay: "/assets/synra/videos/okay.mp4",
+  onIt: "/assets/synra/videos/on-it.mp4",
+  confused: "/assets/synra/videos/confused.mp4",
+  misunderstood: "/assets/synra/videos/misunderstood.mp4",
+  workflowRunning: "/assets/synra/videos/workflow-running.mp4",
+  waiting: "/assets/synra/videos/waiting.mp4",
+  greeting: "/assets/synra/videos/greeting.mp4",
+  reading: "/assets/synra/videos/reading.mp4",
+  alert: "/assets/synra/videos/alert.mp4"
 };
 
 Object.values(framePaths).forEach((src) => {
@@ -255,14 +264,31 @@ function setSynraFrame(src) {
 function videoForState() {
   const mode = stage.dataset.mode || "idle";
   const expression = stage.dataset.expression || "soft_smile";
+  const cue = `${mode} ${expression}`.toLowerCase();
   if (mode === "speaking") return videoPaths.speaking;
   if (mode === "listening") return videoPaths.listening;
-  if (mode === "thinking" || mode === "workflow_running") return videoPaths.thinking;
+  if (mode === "workflow_running" || cue.includes("workflow") || cue.includes("execut") || cue.includes("running")) {
+    return videoPaths.workflowRunning;
+  }
+  if (cue.includes("okay") || cue.includes("ok") || cue.includes("ack") || cue.includes("nod")) return videoPaths.okay;
+  if (cue.includes("on_it") || cue.includes("on-it") || cue.includes("on it") || cue.includes("working")) {
+    return videoPaths.onIt;
+  }
+  if (cue.includes("confused") || cue.includes("unclear") || cue.includes("unknown")) return videoPaths.confused;
+  if (cue.includes("misunderstood") || cue.includes("did_not_catch") || cue.includes("did not catch")) {
+    return videoPaths.misunderstood;
+  }
+  if (cue.includes("reading") || cue.includes("scanning") || cue.includes("reviewing")) return videoPaths.reading;
+  if (cue.includes("greeting") || cue.includes("hello") || cue.includes("welcome")) return videoPaths.greeting;
+  if (cue.includes("alert") || cue.includes("attention")) return videoPaths.alert;
+  if (mode === "thinking") return videoPaths.thinking;
   if (mode === "success") return videoPaths.success;
   if (mode === "approval_needed" || expression === "raised_brow") return videoPaths.approval;
-  if (mode === "error" || mode === "warning" || expression === "concerned") return videoPaths.concerned;
+  if (mode === "warning") return videoPaths.misunderstood;
+  if (mode === "error" || expression === "concerned") return videoPaths.concerned;
   if (expression === "wink" || expression === "bright") return videoPaths.success;
-  return videoPaths.idle;
+  if (mode === "idle") return videoPaths.idle;
+  return videoPaths.waiting;
 }
 
 function setSynraVideo(src) {
