@@ -156,6 +156,9 @@
         });
       });
       window.addEventListener("resize", fitModel, { passive: true });
+      if (new URLSearchParams(window.location.search).get("sample") === "1") {
+        modelUrl.value = "/assets/live2d/smoke-test/Mao/Mao.model3.json";
+      }
       loadModel();
     </script>
   </body>
