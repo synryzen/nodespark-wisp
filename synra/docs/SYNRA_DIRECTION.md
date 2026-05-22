@@ -31,9 +31,24 @@ hologram.
   workflows.
 - OpenHuman: UI-first assistant, avatar presence, voice, lip sync, memory tree,
   local-first experience.
+- ClawStage: embodied presence, a fixed place for the agent to live, persona
+  continuity across devices, and a product experience where the assistant feels
+  like a real operator instead of a floating chatbot.
 
 ## What Makes Synra Different
 
 Synra is not the agent platform itself. NodeSparkHub is the workflow brain.
 Synra is the embodied interface: she shows state, asks questions, speaks
 results, runs Hub workflows, and makes automation feel present.
+
+## Experience Target
+
+Synra should feel like NodeSparkHub's operator in the room. She is the same
+intelligence across the Mac app, Jetson display, and future hardware, but the
+Jetson monitor is her stage: always-on, visually alive, locally aware, and
+connected to camera, microphone, workflows, approvals, device state, and memory.
+
+Her visual design stays close to the supplied NodeSpark anime reference: adult,
+polished, dark-haired, violet-eyed, attractive, confident, and premium. The
+ClawStage inspiration is the sense of embodiment and product seriousness, not a
+replacement for Synra's look.
