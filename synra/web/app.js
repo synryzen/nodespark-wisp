@@ -14,6 +14,7 @@ const voiceNote = document.getElementById("voiceNote");
 const micStatus = document.getElementById("micStatus");
 const cameraStatus = document.getElementById("cameraStatus");
 const presenceVideo = document.getElementById("presenceVideo");
+const live2dStatus = document.getElementById("live2dStatus");
 
 let lastSpeechId = "";
 let recognition = null;
@@ -80,6 +81,7 @@ function renderState(state) {
     item.style.background = active ? "rgba(76, 201, 255, 0.16)" : "";
   });
 
+  window.synraLive2D?.setState(state);
   maybeSpeak(state);
 }
 
@@ -98,10 +100,16 @@ function maybeSpeak(state) {
   utterance.onstart = () => {
     targetMotion.mouth = 1;
     stage.dataset.mode = "speaking";
+    window.synraLive2D?.setSpeaking(true);
+  };
+  utterance.onboundary = () => {
+    targetMotion.mouth = 0.64 + Math.random() * 0.36;
+    window.synraLive2D?.setSpeaking(true);
   };
   utterance.onend = () => {
     targetMotion.mouth = 0;
     stage.dataset.mode = lastStateMode || "idle";
+    window.synraLive2D?.setSpeaking(false);
   };
   const voices = window.speechSynthesis.getVoices();
   const preferred = voices.find((voice) => /female|samantha|zira|google us english/i.test(voice.name));
@@ -237,6 +245,13 @@ function updateMotion() {
   setCssNumber("--light-sweep", 42 + Math.sin(now / 2400) * 16, "%");
   setCssNumber("--mouth-open", clamp(mouthWave, 0, 1));
   setCssNumber("--blink", blink);
+  window.synraLive2D?.update({
+    x: currentMotion.x,
+    y: currentMotion.y,
+    rotate: currentMotion.rotate,
+    scale: currentMotion.scale,
+    mouth: clamp(mouthWave, 0, 1)
+  });
 
   requestAnimationFrame(updateMotion);
 }
@@ -494,6 +509,9 @@ listenButton.addEventListener("click", startVoiceLoop);
 cameraButton.addEventListener("click", activateCameraAndMic);
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 navigator.mediaDevices?.addEventListener?.("devicechange", enumerateDevices);
+window.addEventListener("synra:live2d-status", (event) => {
+  if (live2dStatus && event.detail?.label) live2dStatus.textContent = event.detail.label;
+});
 
 enumerateDevices();
 updateMotion();

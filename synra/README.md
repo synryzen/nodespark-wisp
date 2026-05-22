@@ -24,6 +24,8 @@ Current capabilities:
 - Browser speech output when Synra receives a `speak` command.
 - Browser microphone loop for push-to-talk requests through NodeSparkHub
   Assistant.
+- Live2D-ready browser stage for a real Cubism character model, with PNG
+  fallback while the rigged Synra model pack is being authored.
 - Jetson-friendly Python daemon with no browser framework dependency.
 
 ## Install On Existing Jetson OS
@@ -123,6 +125,25 @@ Speak naturally
 The browser captures a transcript, sends it to the local Synra daemon, the
 daemon forwards it to NodeSparkHub's `/wisp/assistant` flow, and Synra speaks
 the returned reply.
+
+## Live2D Character Model
+
+Synra's final visual layer is Live2D Cubism, not a moving PNG. The web app looks
+for a rigged model pack here:
+
+```text
+synra/web/assets/live2d/synra/synra.model3.json
+```
+
+Check whether the runtime and model are present:
+
+```bash
+cd synra
+bash scripts/check_live2d_assets.sh
+```
+
+See `docs/LIVE2D_PIPELINE.md` for the layer list, expression names, motion
+groups, and export structure.
 
 ## Design North Star
 

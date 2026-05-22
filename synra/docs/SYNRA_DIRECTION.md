@@ -20,6 +20,8 @@ hologram.
 - Floating workflow panels and node graphs around her hands.
 - State-driven glow: cyan listening, violet thinking, gold approval, green
   success, red error.
+- Final avatar layer is a Live2D Cubism model with real rigged hair, eyes,
+  mouth, body, clothing, accessory physics, expressions, and state motions.
 
 ## What We Borrow From Other Systems
 
@@ -35,4 +37,3 @@ hologram.
 Synra is not the agent platform itself. NodeSparkHub is the workflow brain.
 Synra is the embodied interface: she shows state, asks questions, speaks
 results, runs Hub workflows, and makes automation feel present.
-

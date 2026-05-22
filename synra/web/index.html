@@ -23,7 +23,11 @@
 
         <div class="avatar-shell">
           <div class="depth-backdrop" aria-hidden="true"></div>
-          <div class="synra-rig" id="synraRig">
+          <div class="live2d-layer" id="live2dLayer" aria-label="NodeSpark Synra Live2D avatar">
+            <canvas id="synraLive2DCanvas"></canvas>
+            <div class="live2d-status-pill" id="live2dStatus">Live2D model waiting</div>
+          </div>
+          <div class="synra-rig fallback-avatar" id="synraRig">
             <img
               class="synra-art"
               src="/assets/synra-character.png"
@@ -245,6 +249,7 @@
       </aside>
     </main>
 
+    <script src="/live2d-driver.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
