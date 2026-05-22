@@ -9,6 +9,8 @@ CHROME_FLAGS=(
   --disable-gpu
   --disable-software-rasterizer=false
   --use-gl=swiftshader
+  --autoplay-policy=no-user-gesture-required
+  --use-fake-ui-for-media-stream
 )
 
 if command -v chromium-browser >/dev/null 2>&1; then

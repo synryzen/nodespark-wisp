@@ -9,6 +9,13 @@
   --rose: #ff4d6d;
   --text: #eef8ff;
   --muted: #8fa8bd;
+  --rig-x: 0px;
+  --rig-y: 0px;
+  --rig-rotate: 0deg;
+  --rig-scale: 1;
+  --blink: 0;
+  --mouth-open: 0;
+  --mood-glow: rgba(155, 92, 255, 0.26);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -110,18 +117,109 @@ body {
   isolation: isolate;
 }
 
-.synra-art {
+.synra-rig {
   position: relative;
   z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  transform:
+    translate3d(var(--rig-x), var(--rig-y), 0)
+    rotate(var(--rig-rotate))
+    scale(var(--rig-scale));
+  transform-origin: 50% 60%;
+  transition: filter 220ms ease;
+  animation: characterBreathe 4.8s ease-in-out infinite;
+}
+
+.synra-art {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: 50% 44%;
   border-radius: 10px;
   filter:
-    drop-shadow(0 0 34px rgba(155, 92, 255, 0.26))
+    drop-shadow(0 0 34px var(--mood-glow))
     drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
-  animation: characterBreathe 4.8s ease-in-out infinite;
+}
+
+.face-rig {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.eye-rig {
+  position: absolute;
+  width: 4.2%;
+  height: 2.8%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scaleY(calc(1 - var(--blink) * 0.9));
+  transform-origin: center;
+  opacity: calc(0.08 + var(--blink) * 0.82);
+  background:
+    radial-gradient(circle at 52% 50%, rgba(255,255,255,0.85) 0 9%, transparent 11%),
+    radial-gradient(circle at center, rgba(197, 134, 255, 0.85), rgba(82, 18, 130, 0.22) 62%, transparent 70%);
+  box-shadow: 0 0 14px rgba(168, 96, 255, 0.42);
+  transition: opacity 90ms linear, transform 90ms linear;
+}
+
+.eye-rig span {
+  position: absolute;
+  inset: -38% -24%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(2, 2, 8, 0.18), rgba(2, 2, 8, 0.78));
+  opacity: var(--blink);
+}
+
+.eye-left {
+  left: 44.3%;
+  top: 31.2%;
+}
+
+.eye-right {
+  left: 52.2%;
+  top: 28.5%;
+}
+
+.mouth-rig {
+  position: absolute;
+  left: 52.4%;
+  top: 43.7%;
+  width: 5.8%;
+  height: calc(1.2% + var(--mouth-open) * 2.4%);
+  border-radius: 0 0 999px 999px;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(ellipse at 50% 72%, rgba(255, 220, 236, 0.72), transparent 28%),
+    linear-gradient(180deg, rgba(60, 9, 34, 0.15), rgba(87, 17, 47, calc(0.18 + var(--mouth-open) * 0.52)));
+  border-bottom: calc(2px + var(--mouth-open) * 2px) solid rgba(255, 170, 211, calc(0.22 + var(--mouth-open) * 0.46));
+  opacity: calc(0.12 + var(--mouth-open) * 0.76);
+  filter: drop-shadow(0 0 8px rgba(255, 117, 193, 0.28));
+}
+
+.cheek-rig {
+  position: absolute;
+  width: 7.8%;
+  height: 3.2%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(255, 100, 170, 0.2), transparent 68%);
+  opacity: 0;
+  filter: blur(4px);
+}
+
+.cheek-left {
+  left: 42.2%;
+  top: 38.2%;
+}
+
+.cheek-right {
+  left: 56%;
+  top: 36.3%;
 }
 
 .synra-scanline {
@@ -147,6 +245,14 @@ body {
   filter: drop-shadow(0 0 42px rgba(76, 201, 255, 0.35)) drop-shadow(0 30px 80px rgba(0, 0, 0, 0.55));
   z-index: 2;
   display: none;
+}
+
+.presence-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .synra-portrait .aura-lines path {
@@ -472,10 +578,28 @@ h1 {
   gap: 8px;
 }
 
-.voice-note {
+.voice-note,
+.device-strip {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.device-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.device-strip span {
+  min-width: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.045);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-actions button {
@@ -521,36 +645,43 @@ h1 {
 }
 
 [data-mode="listening"] .synra-art {
-  filter:
-    drop-shadow(0 0 38px rgba(76, 201, 255, 0.48))
-    drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
+  --mood-glow: rgba(76, 201, 255, 0.48);
 }
 
 [data-mode="thinking"] .synra-art,
 [data-mode="workflow_running"] .synra-art {
+  --mood-glow: rgba(155, 92, 255, 0.45);
   filter:
     saturate(1.08)
-    drop-shadow(0 0 44px rgba(155, 92, 255, 0.45))
+    drop-shadow(0 0 44px var(--mood-glow))
     drop-shadow(0 34px 88px rgba(0, 0, 0, 0.62));
 }
 
-[data-mode="speaking"] .synra-art {
+[data-mode="speaking"] .synra-rig {
   animation: characterBreathe 2.6s ease-in-out infinite, speakingGlow 900ms ease-in-out infinite;
 }
 
 [data-mode="success"] .synra-art {
+  --mood-glow: rgba(64, 240, 160, 0.36);
   filter:
     saturate(1.12)
-    drop-shadow(0 0 42px rgba(64, 240, 160, 0.36))
+    drop-shadow(0 0 42px var(--mood-glow))
     drop-shadow(0 34px 88px rgba(0, 0, 0, 0.6));
 }
 
 [data-mode="error"] .synra-art,
 [data-expression="concerned"] .synra-art {
+  --mood-glow: rgba(255, 77, 109, 0.32);
   filter:
     saturate(0.84)
-    drop-shadow(0 0 34px rgba(255, 77, 109, 0.32))
+    drop-shadow(0 0 34px var(--mood-glow))
     drop-shadow(0 34px 88px rgba(0, 0, 0, 0.62));
+}
+
+[data-expression="bright"] .cheek-rig,
+[data-expression="wink"] .cheek-rig,
+[data-mode="success"] .cheek-rig {
+  opacity: 1;
 }
 
 [data-mode="thinking"] .synra-portrait,
@@ -617,8 +748,18 @@ h1 {
 }
 
 @keyframes characterBreathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-8px) scale(1.012); }
+  0%, 100% {
+    transform:
+      translate3d(var(--rig-x), var(--rig-y), 0)
+      rotate(var(--rig-rotate))
+      scale(var(--rig-scale));
+  }
+  50% {
+    transform:
+      translate3d(calc(var(--rig-x) * 1.05), calc(var(--rig-y) - 8px), 0)
+      rotate(calc(var(--rig-rotate) * 0.8))
+      scale(calc(var(--rig-scale) + 0.012));
+  }
 }
 
 @keyframes speakingGlow {
@@ -672,6 +813,10 @@ h1 {
   .avatar-shell {
     width: 100%;
     height: min(74vh, 760px);
+  }
+
+  .device-strip {
+    grid-template-columns: 1fr;
   }
 
   .status-zone {

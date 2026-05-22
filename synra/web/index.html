@@ -22,12 +22,22 @@
         </div>
 
         <div class="avatar-shell">
-          <img
-            class="synra-art"
-            src="/assets/synra-character.png"
-            alt="NodeSpark Synra, an adult anime AI assistant in a purple-lit developer studio"
-          />
-          <div class="synra-scanline" aria-hidden="true"></div>
+          <div class="synra-rig" id="synraRig">
+            <img
+              class="synra-art"
+              src="/assets/synra-character.png"
+              alt="NodeSpark Synra, an adult anime AI assistant in a purple-lit developer studio"
+            />
+            <div class="face-rig" aria-hidden="true">
+              <span class="eye-rig eye-left"><span></span></span>
+              <span class="eye-rig eye-right"><span></span></span>
+              <span class="mouth-rig"></span>
+              <span class="cheek-rig cheek-left"></span>
+              <span class="cheek-rig cheek-right"></span>
+            </div>
+            <div class="synra-scanline" aria-hidden="true"></div>
+          </div>
+          <video id="presenceVideo" class="presence-video" muted playsinline></video>
           <svg class="synra-portrait" viewBox="0 0 720 1000" role="img" aria-labelledby="synraTitle synraDesc">
             <title id="synraTitle">NodeSpark Synra anime assistant</title>
             <desc id="synraDesc">An original adult anime-style woman with dark hair, cyan eyes, a sleek NodeSpark jacket, and expressive assistant states.</desc>
@@ -217,9 +227,13 @@
 
         <div class="quick-actions">
           <button id="listenButton">Talk</button>
+          <button id="cameraButton">Cam</button>
           <button data-demo="thinking">Think</button>
           <button data-demo="speaking">Speak</button>
-          <button data-demo="success">Win</button>
+        </div>
+        <div class="device-strip" aria-live="polite">
+          <span id="micStatus">Mic checking</span>
+          <span id="cameraStatus">Cam checking</span>
         </div>
         <p class="voice-note" id="voiceNote">Voice loop ready</p>
       </aside>

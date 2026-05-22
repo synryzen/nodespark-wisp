@@ -9,11 +9,23 @@ const cardDetail = document.getElementById("cardDetail");
 const progressBar = document.getElementById("progressBar");
 const modeStrip = document.getElementById("modeStrip");
 const listenButton = document.getElementById("listenButton");
+const cameraButton = document.getElementById("cameraButton");
 const voiceNote = document.getElementById("voiceNote");
+const micStatus = document.getElementById("micStatus");
+const cameraStatus = document.getElementById("cameraStatus");
+const presenceVideo = document.getElementById("presenceVideo");
 
 let lastSpeechId = "";
 let recognition = null;
 let isListening = false;
+let cameraStream = null;
+let faceDetector = null;
+let audioLevel = 0;
+let targetMotion = { x: 0, y: 0, rotate: 0, scale: 1, mouth: 0 };
+let currentMotion = { x: 0, y: 0, rotate: 0, scale: 1, mouth: 0 };
+let blinkUntil = 0;
+let nextBlink = performance.now() + 1600;
+let lastStateMode = "idle";
 
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
@@ -48,6 +60,7 @@ async function fetchState() {
 function renderState(state) {
   stage.dataset.mode = state.mode || "idle";
   stage.dataset.expression = state.expression || "soft_smile";
+  lastStateMode = state.mode || "idle";
   stateLabel.textContent = state.mode || "idle";
   messageText.textContent = state.message || "NodeSparkHub is waiting for a workflow.";
   subtitleText.textContent = state.subtitle || "Ready";
@@ -81,6 +94,14 @@ function maybeSpeak(state) {
   utterance.rate = 0.96;
   utterance.pitch = 1.08;
   utterance.volume = 1.0;
+  utterance.onstart = () => {
+    targetMotion.mouth = 1;
+    stage.dataset.mode = "speaking";
+  };
+  utterance.onend = () => {
+    targetMotion.mouth = 0;
+    stage.dataset.mode = lastStateMode || "idle";
+  };
   const voices = window.speechSynthesis.getVoices();
   const preferred = voices.find((voice) => /female|samantha|zira|google us english/i.test(voice.name));
   if (preferred) utterance.voice = preferred;
@@ -165,6 +186,200 @@ function speechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function setCssNumber(name, value, unit = "") {
+  stage.style.setProperty(name, `${value.toFixed(3)}${unit}`);
+}
+
+function scheduleBlink(now) {
+  if (now < nextBlink) return;
+  blinkUntil = now + 130;
+  nextBlink = now + 2200 + Math.random() * 3600;
+}
+
+function updateMotion() {
+  const now = performance.now();
+  scheduleBlink(now);
+
+  const listeningBoost = isListening ? 1 : 0;
+  const speakingBoost = stage.dataset.mode === "speaking" ? 1 : 0;
+  const thinkingBoost = stage.dataset.mode === "thinking" || stage.dataset.mode === "workflow_running" ? 1 : 0;
+  const idleX = Math.sin(now / 2700) * 4;
+  const idleY = Math.cos(now / 3100) * 3;
+  const idleRot = Math.sin(now / 4300) * 0.42;
+
+  targetMotion.x = clamp(targetMotion.x * 0.94 + idleX * 0.06, -18, 18);
+  targetMotion.y = clamp(targetMotion.y * 0.94 + idleY * 0.06, -14, 14);
+  targetMotion.rotate = clamp(targetMotion.rotate * 0.94 + idleRot * 0.06, -1.6, 1.6);
+  targetMotion.scale = 1 + listeningBoost * 0.006 + thinkingBoost * 0.004 + audioLevel * 0.012;
+  if (!speakingBoost && !isListening) targetMotion.mouth *= 0.9;
+
+  currentMotion.x += (targetMotion.x - currentMotion.x) * 0.08;
+  currentMotion.y += (targetMotion.y - currentMotion.y) * 0.08;
+  currentMotion.rotate += (targetMotion.rotate - currentMotion.rotate) * 0.08;
+  currentMotion.scale += (targetMotion.scale - currentMotion.scale) * 0.08;
+  currentMotion.mouth += (targetMotion.mouth - currentMotion.mouth) * 0.16;
+
+  const talking = Math.max(currentMotion.mouth, audioLevel);
+  const mouthWave = talking ? (0.35 + Math.abs(Math.sin(now / 92)) * 0.65) * talking : 0;
+  const blink = now < blinkUntil ? 1 : 0;
+
+  setCssNumber("--rig-x", currentMotion.x, "px");
+  setCssNumber("--rig-y", currentMotion.y, "px");
+  setCssNumber("--rig-rotate", currentMotion.rotate, "deg");
+  setCssNumber("--rig-scale", currentMotion.scale);
+  setCssNumber("--mouth-open", clamp(mouthWave, 0, 1));
+  setCssNumber("--blink", blink);
+
+  requestAnimationFrame(updateMotion);
+}
+
+function handlePointerMove(event) {
+  const rect = stage.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+  const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+  targetMotion.x = clamp(x * 12, -18, 18);
+  targetMotion.y = clamp(y * 9, -14, 14);
+  targetMotion.rotate = clamp(x * 1.1, -1.6, 1.6);
+}
+
+async function enumerateDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    micStatus.textContent = "Mic unavailable";
+    cameraStatus.textContent = "Cam unavailable";
+    return;
+  }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const mics = devices.filter((device) => device.kind === "audioinput");
+  const cameras = devices.filter((device) => device.kind === "videoinput");
+  const mic = mics[0];
+  const camera = cameras[0];
+  micStatus.textContent = mic ? `Mic ${mic.label || "detected"}` : "Mic not found";
+  cameraStatus.textContent = camera ? `Cam ${camera.label || "detected"}` : "Cam not found";
+  return { mics, cameras };
+}
+
+function preferredDevice(devices, patterns) {
+  return devices.find((device) => patterns.some((pattern) => pattern.test(device.label || ""))) || devices[0] || null;
+}
+
+function watchAudioLevel(stream) {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 512;
+  source.connect(analyser);
+  const samples = new Uint8Array(analyser.frequencyBinCount);
+
+  function sampleAudio() {
+    analyser.getByteFrequencyData(samples);
+    const average = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+    audioLevel = clamp((average - 8) / 72, 0, 1);
+    if (cameraStream) requestAnimationFrame(sampleAudio);
+  }
+  sampleAudio();
+}
+
+async function activateCameraAndMic() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    voiceNote.textContent = "Media devices unavailable";
+    return;
+  }
+  try {
+    let devices = await enumerateDevices();
+    let preferredMic = preferredDevice(devices?.mics || [], [/emeet/i, /piko/i, /usb/i, /external/i]);
+    let preferredCamera = preferredDevice(devices?.cameras || [], [/emeet/i, /piko/i, /usb/i, /external/i]);
+    const firstStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        ...(preferredMic?.deviceId ? { deviceId: { ideal: preferredMic.deviceId } } : {}),
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: {
+        ...(preferredCamera?.deviceId ? { deviceId: { ideal: preferredCamera.deviceId } } : {}),
+        width: { ideal: 640 },
+        height: { ideal: 360 },
+        facingMode: "user"
+      }
+    });
+    cameraStream = firstStream;
+    devices = await enumerateDevices();
+    preferredMic = preferredDevice(devices?.mics || [], [/emeet/i, /piko/i, /usb/i, /external/i]);
+    preferredCamera = preferredDevice(devices?.cameras || [], [/emeet/i, /piko/i, /usb/i, /external/i]);
+    const activeAudio = cameraStream.getAudioTracks()[0]?.label || "";
+    const activeVideo = cameraStream.getVideoTracks()[0]?.label || "";
+    const shouldRestartForPreferred =
+      (preferredMic?.label && activeAudio && preferredMic.label !== activeAudio) ||
+      (preferredCamera?.label && activeVideo && preferredCamera.label !== activeVideo);
+    if (shouldRestartForPreferred) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          ...(preferredMic?.deviceId ? { deviceId: { exact: preferredMic.deviceId } } : {}),
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: {
+          ...(preferredCamera?.deviceId ? { deviceId: { exact: preferredCamera.deviceId } } : {}),
+          width: { ideal: 640 },
+          height: { ideal: 360 },
+          frameRate: { ideal: 30 }
+        }
+      });
+    }
+    watchAudioLevel(cameraStream);
+    if (presenceVideo) {
+      presenceVideo.srcObject = cameraStream;
+      await presenceVideo.play().catch(() => {});
+      watchPresence();
+    }
+    voiceNote.textContent = "Webcam mic active";
+    if (preferredMic || preferredCamera) {
+      micStatus.textContent = preferredMic ? `Mic ${preferredMic.label || "active"}` : micStatus.textContent;
+      cameraStatus.textContent = preferredCamera ? `Cam ${preferredCamera.label || "active"}` : cameraStatus.textContent;
+    }
+    stage.dataset.expression = "bright";
+  } catch (error) {
+    voiceNote.textContent = `Cam/mic error: ${error.name || "blocked"}`;
+  }
+}
+
+async function watchPresence() {
+  if (!presenceVideo || !cameraStream) return;
+  if (!faceDetector && "FaceDetector" in window) {
+    try {
+      faceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+    } catch {
+      faceDetector = null;
+    }
+  }
+
+  if (faceDetector && presenceVideo.readyState >= 2) {
+    try {
+      const faces = await faceDetector.detect(presenceVideo);
+      const face = faces[0]?.boundingBox;
+      if (face && presenceVideo.videoWidth && presenceVideo.videoHeight) {
+        const centerX = (face.x + face.width / 2) / presenceVideo.videoWidth - 0.5;
+        const centerY = (face.y + face.height / 2) / presenceVideo.videoHeight - 0.5;
+        targetMotion.x = clamp(centerX * -18, -16, 16);
+        targetMotion.y = clamp(centerY * -12, -12, 12);
+        targetMotion.rotate = clamp(centerX * -1.4, -1.4, 1.4);
+      }
+    } catch {
+      faceDetector = null;
+    }
+  }
+
+  requestAnimationFrame(watchPresence);
+}
+
 function startVoiceLoop() {
   if (isListening) return;
   const Recognition = speechRecognitionConstructor();
@@ -178,6 +393,7 @@ function startVoiceLoop() {
   listenButton.classList.add("active");
   listenButton.textContent = "Listening";
   voiceNote.textContent = "Microphone active";
+  targetMotion.mouth = 0.24;
 
   recognition = new Recognition();
   recognition.lang = navigator.language || "en-US";
@@ -232,6 +448,7 @@ function startVoiceLoop() {
     listenButton.classList.remove("active");
     listenButton.textContent = "Talk";
     voiceNote.textContent = `Mic error: ${event.error || "unknown"}`;
+    targetMotion.mouth = 0;
     setRemoteState({
       mode: "error",
       expression: "concerned",
@@ -253,6 +470,7 @@ function startVoiceLoop() {
     listenButton.classList.remove("active");
     listenButton.textContent = "Talk";
     voiceNote.textContent = "Voice loop ready";
+    targetMotion.mouth = 0;
     askAssistant(transcript);
   };
 
@@ -264,6 +482,11 @@ document.querySelectorAll("[data-demo]").forEach((button) => {
 });
 
 listenButton.addEventListener("click", startVoiceLoop);
+cameraButton.addEventListener("click", activateCameraAndMic);
+window.addEventListener("pointermove", handlePointerMove, { passive: true });
+navigator.mediaDevices?.addEventListener?.("devicechange", enumerateDevices);
 
+enumerateDevices();
+updateMotion();
 fetchState();
 setInterval(fetchState, 650);
