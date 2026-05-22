@@ -16,6 +16,8 @@ const cameraStatus = document.getElementById("cameraStatus");
 const presenceVideo = document.getElementById("presenceVideo");
 const live2dStatus = document.getElementById("live2dStatus");
 const synraFrameArt = document.getElementById("synraFrameArt");
+const synraVideoRig = document.getElementById("synraVideoRig");
+const synraVideoSource = document.getElementById("synraVideoSource");
 
 let lastSpeechId = "";
 let recognition = null;
@@ -30,6 +32,7 @@ let nextBlink = performance.now() + 1600;
 let lastStateMode = "idle";
 let mediaActivationStarted = false;
 let currentFrameSrc = "";
+let currentVideoSrc = "";
 
 const demoText = {
   listening: "I’m listening. Tell me what you want NodeSparkHub to do.",
@@ -59,6 +62,16 @@ const framePaths = {
   mouthEi: "/assets/synra/rig-poses/mouth-ei.png",
   mouthOu: "/assets/synra/rig-poses/mouth-ou.png",
   rigConcerned: "/assets/synra/rig-poses/concerned.png"
+};
+
+const videoPaths = {
+  idle: "/assets/synra/videos/idle.mp4",
+  listening: "/assets/synra/videos/listening.mp4",
+  thinking: "/assets/synra/videos/thinking.mp4",
+  speaking: "/assets/synra/videos/speaking.mp4",
+  success: "/assets/synra/videos/success.mp4",
+  concerned: "/assets/synra/videos/concerned.mp4",
+  approval: "/assets/synra/videos/approval.mp4"
 };
 
 Object.values(framePaths).forEach((src) => {
@@ -239,6 +252,27 @@ function setSynraFrame(src) {
   synraFrameArt.src = src;
 }
 
+function videoForState() {
+  const mode = stage.dataset.mode || "idle";
+  const expression = stage.dataset.expression || "soft_smile";
+  if (mode === "speaking") return videoPaths.speaking;
+  if (mode === "listening") return videoPaths.listening;
+  if (mode === "thinking" || mode === "workflow_running") return videoPaths.thinking;
+  if (mode === "success") return videoPaths.success;
+  if (mode === "approval_needed" || expression === "raised_brow") return videoPaths.approval;
+  if (mode === "error" || mode === "warning" || expression === "concerned") return videoPaths.concerned;
+  if (expression === "wink" || expression === "bright") return videoPaths.success;
+  return videoPaths.idle;
+}
+
+function setSynraVideo(src) {
+  if (!synraVideoRig || !synraVideoSource || !src || src === currentVideoSrc) return;
+  currentVideoSrc = src;
+  synraVideoSource.src = src;
+  synraVideoRig.load();
+  synraVideoRig.play().catch(() => {});
+}
+
 function baseFrameForState() {
   const mode = stage.dataset.mode || "idle";
   const expression = stage.dataset.expression || "soft_smile";
@@ -315,6 +349,7 @@ function updateMotion() {
   setCssNumber("--light-sweep", 42 + Math.sin(now / 2400) * 16, "%");
   setCssNumber("--mouth-open", clamp(mouthWave, 0, 1));
   setCssNumber("--blink", blink);
+  setSynraVideo(videoForState());
   setSynraFrame(chooseSynraFrame({ blink: frameBlink, mouth: clamp(mouthWave, 0, 1) }));
   window.synraLive2D?.update({
     x: currentMotion.x,

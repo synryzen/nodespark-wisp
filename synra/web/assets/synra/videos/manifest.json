@@ -1,0 +1,9 @@
+{
+  "idle": "/assets/synra/videos/idle.mp4",
+  "listening": "/assets/synra/videos/listening.mp4",
+  "thinking": "/assets/synra/videos/thinking.mp4",
+  "speaking": "/assets/synra/videos/speaking.mp4",
+  "success": "/assets/synra/videos/success.mp4",
+  "concerned": "/assets/synra/videos/concerned.mp4",
+  "approval": "/assets/synra/videos/approval.mp4"
+}

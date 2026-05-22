@@ -183,6 +183,7 @@ body {
   animation: characterBreathe 4.8s ease-in-out infinite;
 }
 
+.synra-frame-rig video,
 .synra-frame-rig img {
   display: block;
   width: min(72vh, 92%);
@@ -193,6 +194,17 @@ body {
     drop-shadow(0 0 34px var(--mood-glow))
     drop-shadow(0 34px 88px rgba(0, 0, 0, 0.64));
   transition: opacity 120ms ease, transform 160ms ease;
+}
+
+.synra-frame-rig video {
+  position: relative;
+  z-index: 2;
+}
+
+.synra-frame-rig img {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
 }
 
 [data-live2d="ready"] .synra-frame-rig {

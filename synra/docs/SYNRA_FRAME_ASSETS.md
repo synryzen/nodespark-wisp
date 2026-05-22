@@ -54,7 +54,8 @@ synra/web/assets/synra/rig-poses/
 
 ## App Behavior
 
-The monitor UI uses these frames as the immediate Synra avatar layer:
+The monitor UI uses generated video loops as the primary Synra avatar layer and
+these frames as still fallbacks:
 
 - `idle` uses neutral and look-direction frames.
 - `listening` uses the listening expression.
@@ -67,3 +68,24 @@ The monitor UI uses these frames as the immediate Synra avatar layer:
 
 The Live2D layer still has priority. When a real Cubism model is installed and
 loads successfully, the frame avatar fades out and the Live2D canvas takes over.
+
+## Video Loops
+
+Video loops are generated from the same Synra frames:
+
+```text
+synra/web/assets/synra/videos/idle.mp4
+synra/web/assets/synra/videos/listening.mp4
+synra/web/assets/synra/videos/thinking.mp4
+synra/web/assets/synra/videos/speaking.mp4
+synra/web/assets/synra/videos/success.mp4
+synra/web/assets/synra/videos/concerned.mp4
+synra/web/assets/synra/videos/approval.mp4
+```
+
+Rebuild them with:
+
+```bash
+cd synra
+bash scripts/build_synra_video_loops.sh
+```
