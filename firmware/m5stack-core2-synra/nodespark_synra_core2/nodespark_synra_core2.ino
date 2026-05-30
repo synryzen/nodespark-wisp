@@ -68,6 +68,7 @@ static constexpr int NAV_H = 42;
 static constexpr byte DNS_PORT = 53;
 static constexpr uint32_t VOICE_MS = 5500;
 static constexpr uint32_t VOICE_RATE = 16000;
+static constexpr uint32_t SYNRA_MIRROR_POLL_MS = 15000;
 static constexpr const char* APP_VERSION = "nodespark-synra-core2/2.0.0-clean";
 static constexpr int SYNRA_AVATAR_W = 64;
 static constexpr int SYNRA_AVATAR_H = 136;
@@ -129,6 +130,15 @@ String deviceId;
 String token;
 String pairCode;
 int characterIndex = 0;
+String hubSynraAvatarId;
+String hubSynraAvatarLabel;
+String hubSynraBackgroundId;
+String hubSynraVoiceProvider;
+String hubSynraVoiceName;
+String hubSynraAssistantState = "idle";
+String hubSynraExpression = "soft_smile";
+bool hubMirrorReady = false;
+uint32_t lastMirrorMs = 0;
 String lastStatus = "Starting";
 String lastCommand = "None";
 String lastTranscript;
@@ -160,7 +170,9 @@ bool playSpeechPath(const String& path);
 void playChime(uint16_t accent = C_CYAN);
 bool emergencyPowerOrStop(bool allowStopOnly = false);
 String selectedCharacterName();
+String effectiveSynraAvatarId();
 void cycleCharacter();
+bool syncHubMirrorState(bool quiet = true);
 
 const char* SYNRA_CHARACTERS[] = {
   "Synra",
@@ -170,11 +182,24 @@ const char* SYNRA_CHARACTERS[] = {
 static constexpr int SYNRA_CHARACTER_COUNT = sizeof(SYNRA_CHARACTERS) / sizeof(SYNRA_CHARACTERS[0]);
 
 String selectedCharacterName() {
+  if (hubMirrorReady && hubSynraAvatarLabel.length()) return hubSynraAvatarLabel;
   int idx = constrain(characterIndex, 0, SYNRA_CHARACTER_COUNT - 1);
   return String(SYNRA_CHARACTERS[idx]);
 }
 
+String effectiveSynraAvatarId() {
+  if (hubMirrorReady && hubSynraAvatarId.length()) return hubSynraAvatarId;
+  if (characterIndex == 1) return "code1";
+  if (characterIndex == 2) return "battle";
+  return "classic";
+}
+
 void cycleCharacter() {
+  if (hubMirrorReady) {
+    lastStatus = "Synra model mirrors Hub selection";
+    showMessage("Hub Mirror", "Change Synra's model in NodeSparkHub. Core2 follows the Hub-selected Synra.", C_CYAN);
+    return;
+  }
   characterIndex = (characterIndex + 1) % SYNRA_CHARACTER_COUNT;
   prefs.putInt("character", characterIndex);
   lastStatus = "Character: " + selectedCharacterName();
@@ -357,11 +382,12 @@ void drawSynraPortrait(int x, int y, uint16_t frameColor, const String& label = 
   uint16_t hair = 0xF986;
   uint16_t dress = 0x1814;
   uint16_t trim = 0xFFE0;
-  if (characterIndex == 1) {
+  String avatarId = effectiveSynraAvatarId();
+  if (avatarId == "code1" || avatarId == "modern") {
     hair = 0x07FF;
     dress = 0x18E3;
     trim = 0x5D9F;
-  } else if (characterIndex == 2) {
+  } else if (avatarId == "battle") {
     hair = 0xF800;
     dress = 0x4008;
     trim = 0xF81F;
@@ -795,6 +821,42 @@ bool healthCheck() {
   return hubOnline;
 }
 
+bool syncHubMirrorState(bool quiet) {
+  if (!token.length() || !WiFi.isConnected()) return false;
+  HttpResult r = httpJson("GET", "/synra/mirror-state");
+  if (r.status < 200 || r.status >= 300) {
+    if (!quiet) showMessage("Mirror Failed", r.body.length() ? r.body.substring(0, 160) : r.error, C_AMBER);
+    return false;
+  }
+  DynamicJsonDocument doc(4096);
+  if (deserializeJson(doc, r.body)) {
+    if (!quiet) showMessage("Mirror Failed", "Hub returned bad Synra mirror JSON.", C_AMBER);
+    return false;
+  }
+  JsonObjectConst visual = doc["visual"].as<JsonObjectConst>();
+  JsonObjectConst voice = doc["voice"].as<JsonObjectConst>();
+  hubSynraAvatarId = visual["avatarId"].as<String>();
+  hubSynraAvatarLabel = visual["avatarLabel"].as<String>();
+  hubSynraBackgroundId = visual["backgroundId"].as<String>();
+  hubSynraVoiceProvider = voice["provider"].as<String>();
+  hubSynraVoiceName = voice["voiceName"].as<String>();
+  hubSynraAssistantState = doc["assistantState"].as<String>();
+  hubSynraExpression = doc["expression"].as<String>();
+  if (!hubSynraAssistantState.length()) hubSynraAssistantState = "idle";
+  if (!hubSynraExpression.length()) hubSynraExpression = "soft_smile";
+  hubMirrorReady = hubSynraAvatarId.length() || hubSynraAvatarLabel.length() || hubSynraVoiceProvider.length();
+  lastMirrorMs = millis();
+  if (hubMirrorReady) {
+    lastStatus = "Mirroring Hub Synra";
+    dirty = true;
+  }
+  if (!quiet && hubMirrorReady) {
+    String voiceLine = hubSynraVoiceName.length() ? "Voice: " + hubSynraVoiceName : "Voice follows Hub";
+    showMessage("Hub Synra Mirror", selectedCharacterName() + "\n" + voiceLine, C_GREEN);
+  }
+  return hubMirrorReady;
+}
+
 bool checkIn() {
   String body = "{";
   body += "\"deviceId\":\"" + jsonEscape(deviceId) + "\",";
@@ -804,6 +866,10 @@ bool checkIn() {
   body += "\"appVersion\":\"" + String(APP_VERSION) + "\",";
   body += "\"firmwareVersion\":\"" + String(APP_VERSION) + "\",";
   body += "\"characterName\":\"" + jsonEscape(selectedCharacterName()) + "\",";
+  body += "\"synraMirror\":" + String(hubMirrorReady ? "true" : "false") + ",";
+  body += "\"synraAvatarId\":\"" + jsonEscape(effectiveSynraAvatarId()) + "\",";
+  body += "\"synraState\":\"" + jsonEscape(hubSynraAssistantState) + "\",";
+  body += "\"synraVoiceProvider\":\"" + jsonEscape(hubSynraVoiceProvider) + "\",";
   body += "\"batteryPercent\":" + String(M5.Power.getBatteryLevel()) + ",";
   body += "\"isCharging\":" + String(M5.Power.isCharging() ? "true" : "false") + ",";
   body += "\"wifiSSID\":\"" + jsonEscape(WiFi.isConnected() ? WiFi.SSID() : String("")) + "\",";
@@ -815,11 +881,14 @@ bool checkIn() {
   body += "\"sdReady\":" + String(sdReady ? "true" : "false") + ",";
   body += "\"uptimeSeconds\":" + String(millis() / 1000) + ",";
   body += "\"lastStatus\":\"" + jsonEscape(lastStatus) + "\",";
-  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"button\",\"haptic\",\"battery\",\"sd\",\"assistant\",\"voiceOnly\",\"deviceCommands\",\"bluetooth\"]";
+  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"button\",\"haptic\",\"battery\",\"sd\",\"assistant\",\"synraMirror\",\"voiceOnly\",\"deviceCommands\",\"bluetooth\"]";
   body += "}";
   HttpResult r = httpJson("POST", "/devices/checkin", body);
   bool ok = r.status >= 200 && r.status < 300;
-  if (ok) lastStatus = "Checked in";
+  if (ok) {
+    lastStatus = "Checked in";
+    syncHubMirrorState(true);
+  }
   else lastStatus = r.error.length() ? r.error : "Check-in failed";
   return ok;
 }
@@ -887,9 +956,14 @@ void askAssistant(const String& prompt) {
   body += "\"assistantName\":\"Synra\",";
   body += "\"personaName\":\"" + jsonEscape(selectedCharacterName()) + "\",";
   body += "\"characterName\":\"" + jsonEscape(selectedCharacterName()) + "\",";
+  body += "\"synraMirror\":true,";
+  body += "\"synraAvatarId\":\"" + jsonEscape(effectiveSynraAvatarId()) + "\",";
+  body += "\"synraAvatarLabel\":\"" + jsonEscape(selectedCharacterName()) + "\",";
+  body += "\"synraVoiceProvider\":\"" + jsonEscape(hubSynraVoiceProvider) + "\",";
+  body += "\"synraVoiceName\":\"" + jsonEscape(hubSynraVoiceName) + "\",";
   body += "\"preferredSpeechFormat\":\"wav\",";
   body += "\"voice\":true,";
-  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"assistant\",\"voiceOnly\",\"noCamera\",\"noTextInput\"]";
+  body += "\"capabilities\":[\"display\",\"touch\",\"speaker\",\"microphone\",\"assistant\",\"synraMirror\",\"voiceOnly\",\"noCamera\",\"noTextInput\"]";
   body += "}";
   showMessage("Ask Synra", selectedCharacterName() + " is listening through the Hub...", C_PINK);
   HttpResult r = httpJson("POST", "/synra/assistant", body);
@@ -908,6 +982,10 @@ void askAssistant(const String& prompt) {
   String speech = doc["speechPath"].as<String>();
   if (!speech.length()) speech = doc["speechURL"].as<String>();
   if (!lastAssistantReply.length()) lastAssistantReply = doc["error"].as<String>();
+  String responseState = doc["assistantState"].as<String>();
+  String responseExpression = doc["expression"].as<String>();
+  if (responseState.length()) hubSynraAssistantState = responseState;
+  if (responseExpression.length()) hubSynraExpression = responseExpression;
   lastStatus = doc["ok"].as<bool>() ? "Synra answered" : "Synra returned an error";
   showMessage("Synra", lastAssistantReply.substring(0, 260), doc["ok"].as<bool>() ? C_GREEN : C_AMBER);
   if (speech.length()) playSpeechPath(speech);
@@ -1046,9 +1124,25 @@ void handleCommand(JsonObjectConst c) {
     speech = c["payload"]["speechPath"].as<String>();
     if (!speech.length()) speech = c["payload"]["speechURL"].as<String>();
   }
+  if (c["visual"].is<JsonObjectConst>()) {
+    JsonObjectConst visual = c["visual"].as<JsonObjectConst>();
+    String nextAvatarId = visual["avatarId"].as<String>();
+    String nextAvatarLabel = visual["avatarLabel"].as<String>();
+    if (nextAvatarId.length()) hubSynraAvatarId = nextAvatarId;
+    if (nextAvatarLabel.length()) hubSynraAvatarLabel = nextAvatarLabel;
+    hubMirrorReady = hubSynraAvatarId.length() || hubSynraAvatarLabel.length();
+  }
+  String stateValue = c["assistantState"].as<String>();
+  if (!stateValue.length()) stateValue = c["state"].as<String>();
+  String expressionValue = c["expression"].as<String>();
+  if (stateValue.length()) hubSynraAssistantState = stateValue;
+  if (expressionValue.length()) hubSynraExpression = expressionValue;
   lastCommand = kind + ": " + (title.length() ? title : body);
 
-  if (kind == "speak" || kind == "say" || kind == "speech" || kind == "tts" || kind == "speaker") {
+  if (kind == "synra.state" || kind == "state" || kind == "motion" || kind == "synra.motion") {
+    showMessage("Synra Mirror", selectedCharacterName() + " is " + hubSynraAssistantState + ".", C_CYAN);
+    ackCommand(id, "completed", "synra state mirrored");
+  } else if (kind == "speak" || kind == "say" || kind == "speech" || kind == "tts" || kind == "speaker" || kind == "synra.say") {
     showMessage(title.length() ? title : "Speak", body.length() ? body : "NodeSpark Synra is ready.", C_PINK);
     if (speech.length()) playSpeechPath(speech);
     else speakTextViaHub(body.length() ? body : "NodeSpark Synra is ready.");
@@ -1119,7 +1213,7 @@ String portalHtml() {
   html += "<label>Wi-Fi password</label><input name='pass' type='password' value='" + htmlEscape(wifiPass) + "'>";
   html += "<label>NodeSparkHub URL</label><input name='hub' value='" + htmlEscape(hubBase) + "'>";
   html += "<label>Hub pairing code</label><input name='pair' inputmode='numeric' pattern='[0-9]*' placeholder='6-digit code from NodeSparkHub' value='" + htmlEscape(pairCode) + "'>";
-  html += "<label>Synra character</label><select name='character'>";
+  html += "<label>Fallback character if Hub mirror is unavailable</label><select name='character'>";
   for (int i = 0; i < SYNRA_CHARACTER_COUNT; i++) {
     html += "<option value='" + String(i) + "'";
     if (i == characterIndex) html += " selected";
@@ -1170,10 +1264,11 @@ void drawHome() {
   drawSynraPortrait(226, 51, hubOnline ? C_GREEN : C_PINK);
   text(26, 58, selectedCharacterName(), C_PINK, 1.45f, C_PANEL);
   text(26, 84, WiFi.isConnected() ? "Wi-Fi connected" : "Wi-Fi not connected", WiFi.isConnected() ? C_GREEN : C_AMBER, 1.15f, C_PANEL);
-  text(26, 108, hubOnline ? "Hub online" : "Hub not checked", hubOnline ? C_GREEN : C_MUTED, 1.15f, C_PANEL);
+  text(26, 108, hubMirrorReady ? "Mirroring Hub Synra" : (hubOnline ? "Hub online" : "Hub not checked"), hubMirrorReady ? C_GREEN : (hubOnline ? C_GREEN : C_MUTED), 1.15f, C_PANEL);
   text(26, 132, token.length() ? "Paired to Hub" : "Not paired", token.length() ? C_GREEN : C_AMBER, 1.15f, C_PANEL);
-  wrapText(lastStatus, 26, 155, 24, 1, C_MUTED, 0.9f, C_PANEL);
-  button(132, 150, 82, 30, "Ping", C_BLUE);
+  String voiceLine = hubSynraVoiceName.length() ? "Voice: " + hubSynraVoiceName : (hubSynraVoiceProvider.length() ? "Voice: " + hubSynraVoiceProvider : lastStatus);
+  wrapText(voiceLine, 26, 155, 24, 1, C_MUTED, 0.9f, C_PANEL);
+  button(132, 150, 82, 30, "Sync", C_BLUE);
   nav();
 }
 
@@ -1182,8 +1277,8 @@ void drawAI() {
   drawSynraPortrait(232, 49, C_PINK);
   button(18, 50, 196, 52, "Tap to Talk", C_PINK);
   button(18, 112, 96, 44, "Ask Demo", C_CYAN);
-  button(122, 112, 92, 44, "Character", C_GREEN);
-  String info = lastTranscript.length() ? "You: " + lastTranscript : "Voice-only remote. Mic + speaker use Hub Synra and selected Hub voice.";
+  button(122, 112, 92, 44, "Sync Hub", C_GREEN);
+  String info = lastTranscript.length() ? "You: " + lastTranscript : "Mirrors Hub Synra model, state, and selected voice.";
   wrapText(info, 20, 166, 28, 2, C_MUTED, 1.0f, C_BG);
   nav();
 }
@@ -1224,7 +1319,7 @@ void drawSetup() {
   button(18, 106, 62, 34, "Vol -", C_CYAN);
   button(88, 106, 62, 34, "Vol +", C_CYAN);
   button(158, 106, 62, 34, "Restart", C_AMBER);
-  button(18, 148, 132, 34, selectedCharacterName(), C_PINK);
+  button(18, 148, 132, 34, hubMirrorReady ? "Mirror Hub" : selectedCharacterName(), C_PINK);
   button(158, 148, 62, 34, "Pair", C_AMBER);
   wrapText("Hub: " + hubBase, 18, 185, 30, 1, C_MUTED, 0.95f);
   nav();
@@ -1266,12 +1361,13 @@ void handleTouchAt(int x, int y) {
     if (hit(x, y, 132, 150, 82, 30)) {
       healthCheck();
       checkIn();
+      syncHubMirrorState(false);
       dirty = true;
     }
   } else if (screen == SCREEN_AI) {
     if (hit(x, y, 18, 50, 196, 52)) startVoiceAssistant();
     else if (hit(x, y, 18, 112, 96, 44)) askAssistant("Give a short impressive demo of what NodeSpark Synra Core2 can do with NodeSparkHub.");
-    else if (hit(x, y, 122, 112, 92, 44)) cycleCharacter();
+    else if (hit(x, y, 122, 112, 92, 44)) syncHubMirrorState(false);
   } else if (screen == SCREEN_PAIR) {
     for (int i = 0; i < 10; i++) {
       int bx = 18 + (i % 5) * 45;
@@ -1395,6 +1491,9 @@ void bleNotifyState() {
   body += "\"paired\":" + String(token.length() ? "true" : "false") + ",";
   body += "\"hub\":\"" + jsonEscape(hubBase) + "\",";
   body += "\"character\":\"" + jsonEscape(selectedCharacterName()) + "\",";
+  body += "\"synraMirror\":" + String(hubMirrorReady ? "true" : "false") + ",";
+  body += "\"synraAvatarId\":\"" + jsonEscape(effectiveSynraAvatarId()) + "\",";
+  body += "\"synraVoice\":\"" + jsonEscape(hubSynraVoiceName.length() ? hubSynraVoiceName : hubSynraVoiceProvider) + "\",";
   body += "\"status\":\"" + jsonEscape(lastStatus) + "\"";
   body += "}";
   bleState->setValue(body.c_str());
@@ -1514,6 +1613,9 @@ void loop() {
     lastCheckinMs = millis();
     checkIn();
     bleNotifyState();
+  }
+  if (WiFi.isConnected() && token.length() && millis() - lastMirrorMs > SYNRA_MIRROR_POLL_MS) {
+    syncHubMirrorState(true);
   }
   if (WiFi.isConnected() && token.length() && millis() - lastPollMs > WISP_COMMAND_POLL_MS) {
     lastPollMs = millis();
