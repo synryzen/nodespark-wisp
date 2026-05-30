@@ -12,5 +12,7 @@ dist/
 config.toml
 firmware/esp32-s3-wisp/nodespark_wisp_esp32/config.h
 firmware/m5stack-core2-wisp/nodespark_wisp_core2/config.h
+firmware/m5stack-core2-synra/nodespark_synra_core2/config.h
+firmware/t-deck-plus-wisp/nodespark_wisp_tdeck_plus/config.h
 state.json
 *.log
